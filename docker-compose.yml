@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-8000}:8000" # Use APP_PORT from .env, default to 8000
+    volumes:
+      - ./src:/usr/src/app/src # Mount the src directory for development
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - .env
+    # environment: # Specific environment variables can still be set here if needed
+      # - DATABASE_URL=${DATABASE_URL}
+      # - REDIS_HOST=${REDIS_HOST}
+      # - REDIS_PORT=${REDIS_PORT}
+
+  db:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    # environment: # These are now primarily managed by .env
+      # - POSTGRES_USER=${POSTGRES_USER}
+      # - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    env_file:
+      - .env # Though Redis typically doesn't need many env vars from here
+
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    # No specific env_file needed, connects via web interface
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    env_file:
+      - .env # For GF_SECURITY_ADMIN_USER, GF_SECURITY_ADMIN_PASSWORD etc.
+    # environment:
+      # - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin} # Default if not in .env
+      # - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-grafana} # Default if not in .env
+    depends_on:
+      - db # If Grafana will use PostgreSQL as its own backend or for datasource
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    ports:
+      - "3001:3000" # Host port 3001 to avoid conflict with Grafana if on same host
+    volumes:
+      - ./homepage_config:/app/config # Mount local config directory
+      - /var/run/docker.sock:/var/run/docker.sock:ro # For Docker integration (optional)
+    # env_file:
+      # - .env # If homepage uses any env vars from the common .env
+    # environment: # Homepage specific env vars can be set here or in its own config files
+      # - PUID=1000
+      # - PGID=1000
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  grafana_data:
+
