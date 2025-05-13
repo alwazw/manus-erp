@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -10,6 +11,9 @@ interface Product {
   quantity?: number;
 }
 
+// Construct the API URL using the environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,11 +22,7 @@ export default function ProductsPage() {
   useEffect(() => {
     async function fetchProducts() {
       try {
-        // Assuming the backend API is running and accessible at port 8000 on the host
-        // when running Next.js dev server locally.
-        // If Next.js is also containerized and making server-side requests,
-        // this URL might be http://app:8000/api/products
-        const response = await fetch('http://localhost:8000/api/products');
+        const response = await fetch(`${API_URL}/products`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
