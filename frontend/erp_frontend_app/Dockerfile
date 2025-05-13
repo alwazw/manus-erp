@@ -44,6 +44,7 @@ EXPOSE 3000
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
 # If you have a custom server, copy it here, e.g.:
 # COPY --from=builder /app/server.js ./
 
