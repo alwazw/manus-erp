@@ -1,6 +1,7 @@
 # Main Flask application for ERP Backend APIs
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS # Import CORS
 import os
 import sys
 
@@ -15,6 +16,7 @@ from src.core_modules.reporting_module.reporting_service import generate_sales_r
 from src.core_modules.accounting_module.accounting_service import AccountingService # New import
 
 app = Flask(__name__)
+CORS(app) # Enable CORS for all routes and origins by default
 
 # Initialize services
 product_service = ProductService()
