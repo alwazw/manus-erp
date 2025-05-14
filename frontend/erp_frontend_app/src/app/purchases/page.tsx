@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Edit, Trash2, Eye, Truck, CheckCircle, XCircle, PackageSearch } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Eye, Truck } from 'lucide-react'; // Removed unused icons
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -97,30 +97,49 @@ export default function PurchasesPage() {
 
   const fetchPurchases = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    const url = `${API_URL}/purchases`;
     try {
-      const response = await fetch(`${API_URL}/purchases`);
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Response was not JSON
+        }
+        throw new Error(errorMsg);
       }
       const data = await response.json();
       setPurchases(data);
     } catch (e: any) {
-      setError(e.message);
+      console.error("Error fetching purchase orders:", { url, error: e });
+      setError(e.message || "Failed to fetch purchase orders.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   const fetchProductsForSelection = useCallback(async () => {
+    const url = `${API_URL}/products`;
     try {
-      const response = await fetch(`${API_URL}/products`);
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`HTTP error fetching products! status: ${response.status}`);
+        let errorMsg = `HTTP error fetching products! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Response was not JSON
+        }
+        throw new Error(errorMsg);
       }
       const data = await response.json();
       setProductsForSelection(data.map((p: any) => ({ sku: p.sku, name: p.name, unit_price: p.unit_price, quantity: p.quantity })));
     } catch (e: any) {
-      console.error("Failed to fetch products for selection:", e.message);
+      console.error("Error fetching products for selection:", { url, error: e });
+      // Optionally set an error state if this is critical for UI
     }
   }, []);
 
@@ -144,7 +163,7 @@ export default function PurchasesPage() {
         updatedItems[index] = {
             ...updatedItems[index],
             sku: String(value),
-            cost_price: selectedProduct ? (selectedProduct.unit_price || 0) : 0 
+            cost_price: selectedProduct ? (selectedProduct.unit_price || 0) : 0 // Default cost to unit price for simplicity
         };
     } else {
         updatedItems[index] = { 
@@ -228,34 +247,49 @@ export default function PurchasesPage() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Response was not JSON
+        }
+        throw new Error(errorMsg);
       }
       setIsAddEditModalOpen(false);
       setCurrentPurchaseOrder(null);
       setPurchaseOrderItems([]);
       fetchPurchases();
     } catch (e: any) {
+      console.error(`Error saving purchase order (Method: ${method}):`, { url, payload, error: e });
       alert(`Failed to save purchase order: ${e.message}`);
     }
   };
   
   const handleConfirmStatusUpdate = async () => {
     if (!poToUpdateStatus || !poToUpdateStatus.po_id || !newStatus) return;
+    const url = `${API_URL}/purchases/${poToUpdateStatus.po_id}/status`;
     try {
-        const response = await fetch(`${API_URL}/purchases/${poToUpdateStatus.po_id}/status`, {
+        const response = await fetch(url, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         });
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            let errorMsg = `HTTP error! status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorData.message || errorMsg;
+            } catch (jsonError) {
+                // Response was not JSON
+            }
+            throw new Error(errorMsg);
         }
         fetchPurchases();
         setIsStatusUpdateModalOpen(false);
         setPoToUpdateStatus(null);
     } catch (e: any) {
+        console.error("Error updating PO status:", { url, poId: poToUpdateStatus.po_id, newStatus, error: e });
         alert(`Failed to update PO status: ${e.message}`);
     }
   };
@@ -267,18 +301,26 @@ export default function PurchasesPage() {
 
   const handleDeletePurchaseOrder = async () => {
     if (!purchaseOrderToDelete || !purchaseOrderToDelete.po_id) return;
+    const url = `${API_URL}/purchases/${purchaseOrderToDelete.po_id}`;
     try {
-      const response = await fetch(`${API_URL}/purchases/${purchaseOrderToDelete.po_id}`, {
+      const response = await fetch(url, {
         method: 'DELETE',
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Response was not JSON
+        }
+        throw new Error(errorMsg);
       }
       setIsDeleteConfirmOpen(false);
       setPurchaseOrderToDelete(null);
       fetchPurchases();
     } catch (e: any) {
+      console.error("Error deleting purchase order:", { url, poId: purchaseOrderToDelete.po_id, error: e });
       alert(`Failed to delete purchase order: ${e.message}`);
     }
   };
@@ -369,7 +411,7 @@ export default function PurchasesPage() {
                   <Select 
                     value={item.sku}
                     onValueChange={(value) => handleItemChange(index, 'sku', value)}
-                    disabled={isEditMode} // Disable item editing in edit mode for simplicity, focus on status
+                    disabled={isEditMode} 
                   >
                     <SelectTrigger>
                         <SelectValue placeholder="Select Product" />
@@ -431,58 +473,31 @@ export default function PurchasesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Purchase Order Details: {purchaseOrderToView?.po_number}</DialogTitle>
-            <DialogDescription>
-              Supplier: {purchaseOrderToView?.supplier_name} ({purchaseOrderToView?.supplier_email})
-            </DialogDescription>
           </DialogHeader>
           {purchaseOrderToView && (
-            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <p><strong>Order Date:</strong> {new Date(purchaseOrderToView.order_date).toLocaleDateString()}</p>
-                <p><strong>Expected Delivery:</strong> {purchaseOrderToView.expected_delivery_date ? new Date(purchaseOrderToView.expected_delivery_date).toLocaleDateString() : 'N/A'}</p>
-                <p><strong>Status:</strong> <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(purchaseOrderToView.status)}`}>{purchaseOrderToView.status}</span></p>
-                <p><strong>Total Amount:</strong> ${purchaseOrderToView.total_amount.toFixed(2)}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Items:</h4>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Cost Price</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {purchaseOrderToView.items.map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{item.sku}</TableCell>
-                        <TableCell>{item.product_name || 'N/A'}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">${item.cost_price.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(item.quantity * item.cost_price).toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              {purchaseOrderToView.notes && (
-                <div>
-                  <h4 className="font-semibold mb-1">Notes:</h4>
-                  <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">{purchaseOrderToView.notes}</p>
+            <div className="grid gap-2 py-4 text-sm max-h-[70vh] overflow-y-auto pr-2">
+              <p><strong>PO ID:</strong> {purchaseOrderToView.po_id}</p>
+              <p><strong>Supplier:</strong> {purchaseOrderToView.supplier_name} ({purchaseOrderToView.supplier_email || 'No email'})</p>
+              <p><strong>Order Date:</strong> {new Date(purchaseOrderToView.order_date).toLocaleDateString()}</p>
+              <p><strong>Expected Delivery:</strong> {purchaseOrderToView.expected_delivery_date ? new Date(purchaseOrderToView.expected_delivery_date).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>Total Amount:</strong> ${purchaseOrderToView.total_amount.toFixed(2)}</p>
+              <p><strong>Status:</strong> <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(purchaseOrderToView.status)}`}>{purchaseOrderToView.status}</span></p>
+              <h4 className="font-semibold mt-2">Items:</h4>
+              {purchaseOrderToView.items.map((item, idx) => (
+                <div key={idx} className="border-t pt-1 mt-1">
+                  <p>SKU: {item.sku} ({item.product_name || 'Product name not available'})</p>
+                  <p>Quantity: {item.quantity} @ ${item.cost_price.toFixed(2)} each</p>
+                  <p>Line Total: ${(item.quantity * item.cost_price).toFixed(2)}</p>
                 </div>
-              )}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground pt-2 border-t">
-                <p><strong>Created:</strong> {purchaseOrderToView.created_at ? new Date(purchaseOrderToView.created_at).toLocaleString() : 'N/A'}</p>
-                <p><strong>Last Updated:</strong> {purchaseOrderToView.updated_at ? new Date(purchaseOrderToView.updated_at).toLocaleString() : 'N/A'}</p>
-              </div>
+              ))}
+              {purchaseOrderToView.notes && <><h4 className="font-semibold mt-2">Notes:</h4><p className="whitespace-pre-wrap">{purchaseOrderToView.notes}</p></>}
+              <p className="mt-2 text-xs text-muted-foreground">Created: {purchaseOrderToView.created_at ? new Date(purchaseOrderToView.created_at).toLocaleString() : 'N/A'}</p>
+              <p className="text-xs text-muted-foreground">Last Updated: {purchaseOrderToView.updated_at ? new Date(purchaseOrderToView.updated_at).toLocaleString() : 'N/A'}</p>
             </div>
           )}
           <DialogFooter>
@@ -496,7 +511,7 @@ export default function PurchasesPage() {
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Update PO Status: {poToUpdateStatus?.po_number}</DialogTitle>
-                <DialogDescription>Select the new status for this purchase order. If marking as "Received", inventory will be updated.</DialogDescription>
+                <DialogDescription>Select the new status for this purchase order. If set to "Received", inventory will be updated.</DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 <Label htmlFor="new_status">New Status</Label>
@@ -521,28 +536,27 @@ export default function PurchasesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Purchase Orders List</CardTitle>
-          <CardDescription>Browse and manage all supplier purchase orders.</CardDescription>
+          <CardTitle>Purchase Orders</CardTitle>
+          <CardDescription>View, create, edit, or delete purchase orders.</CardDescription>
         </CardHeader>
         <CardContent>
           {purchases.length === 0 && !loading ? (
             <div className="text-center py-10">
               <p className="text-muted-foreground">No purchase orders found.</p>
               <Button onClick={openAddModal} className="mt-4">
-                <PlusCircle className="mr-2 h-4 w-4" /> Create Your First Purchase Order
+                <PlusCircle className="mr-2 h-4 w-4" /> Create First Purchase Order
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[120px]">PO #</TableHead>
+                  <TableHead className="w-[150px]">PO #</TableHead>
                   <TableHead>Supplier</TableHead>
                   <TableHead>Order Date</TableHead>
-                  <TableHead>Expected Delivery</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right w-[150px]">Actions</TableHead>
+                  <TableHead className="text-right w-[160px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -551,7 +565,6 @@ export default function PurchasesPage() {
                     <TableCell className="font-medium">{po.po_number}</TableCell>
                     <TableCell>{po.supplier_name}</TableCell>
                     <TableCell>{new Date(po.order_date).toLocaleDateString()}</TableCell>
-                    <TableCell>{po.expected_delivery_date ? new Date(po.expected_delivery_date).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">${po.total_amount.toFixed(2)}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(po.status)}`}>
@@ -565,11 +578,10 @@ export default function PurchasesPage() {
                       <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openStatusUpdateModal(po)} title="Update Status">
                         <Truck className="h-4 w-4" />
                       </Button>
-                      {/* Full edit might be re-enabled if backend supports full PUT for POs */}
-                      {/* <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openEditModal(po)} title="Edit Order">
+                      <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openEditModal(po)} title="Edit Purchase Order (Details)">
                         <Edit className="h-4 w-4" />
-                      </Button> */}
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => openDeleteConfirm(po)} title="Delete Order">
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => openDeleteConfirm(po)} title="Delete Purchase Order">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>

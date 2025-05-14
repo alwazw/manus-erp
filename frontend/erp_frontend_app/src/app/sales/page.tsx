@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Edit, Trash2, Eye, DollarSign, Hash, CalendarDays, UserCircle, Truck } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Eye } from 'lucide-react'; // Removed unused icons for now
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -96,30 +96,49 @@ export default function SalesPage() {
 
   const fetchSales = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    const url = `${API_URL}/sales`;
     try {
-      const response = await fetch(`${API_URL}/sales`);
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Response was not JSON
+        }
+        throw new Error(errorMsg);
       }
       const data = await response.json();
       setSales(data);
     } catch (e: any) {
-      setError(e.message);
+      console.error("Error fetching sales orders:", { url, error: e });
+      setError(e.message || "Failed to fetch sales orders.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   const fetchProductsForSelection = useCallback(async () => {
+    const url = `${API_URL}/products`;
     try {
-      const response = await fetch(`${API_URL}/products`);
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`HTTP error fetching products! status: ${response.status}`);
+        let errorMsg = `HTTP error fetching products! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Response was not JSON
+        }
+        throw new Error(errorMsg);
       }
       const data = await response.json();
       setProductsForSelection(data.map((p: any) => ({ sku: p.sku, name: p.name, unit_price: p.unit_price, quantity: p.quantity })));
     } catch (e: any) {
-      console.error("Failed to fetch products for selection:", e.message);
+      console.error("Error fetching products for selection:", { url, error: e });
+      // Optionally set an error state if this is critical for UI
     }
   }, []);
 
@@ -230,14 +249,21 @@ export default function SalesPage() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Response was not JSON
+        }
+        throw new Error(errorMsg);
       }
       setIsAddEditModalOpen(false);
       setCurrentSaleOrder(null);
       setSaleOrderItems([]);
       fetchSales(); 
     } catch (e: any) {
+      console.error(`Error saving sales order (Method: ${method}):`, { url, payload, error: e });
       alert(`Failed to save sales order: ${e.message}`);
     }
   };
@@ -249,18 +275,26 @@ export default function SalesPage() {
 
   const handleDeleteSaleOrder = async () => {
     if (!saleOrderToDelete || !saleOrderToDelete.order_id) return;
+    const url = `${API_URL}/sales/${saleOrderToDelete.order_id}`;
     try {
-      const response = await fetch(`${API_URL}/sales/${saleOrderToDelete.order_id}`, {
+      const response = await fetch(url, {
         method: 'DELETE',
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Response was not JSON
+        }
+        throw new Error(errorMsg);
       }
       setIsDeleteConfirmOpen(false);
       setSaleOrderToDelete(null);
       fetchSales(); 
     } catch (e: any) {
+      console.error("Error deleting sales order:", { url, orderId: saleOrderToDelete.order_id, error: e });
       alert(`Failed to delete sales order: ${e.message}`);
     }
   };
@@ -420,65 +454,33 @@ export default function SalesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Sales Order Details: {saleOrderToView?.order_number}</DialogTitle>
-            <DialogDescription>
-              Customer: {saleOrderToView?.customer_name} ({saleOrderToView?.customer_email})
-            </DialogDescription>
           </DialogHeader>
           {saleOrderToView && (
-            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                <p><strong>Order Date:</strong> {new Date(saleOrderToView.order_date).toLocaleDateString()}</p>
-                <p><strong>Status:</strong> <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(saleOrderToView.status)}`}>{saleOrderToView.status}</span></p>
-                <p><strong>Total Amount:</strong> ${saleOrderToView.total_amount.toFixed(2)}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Shipping Address:</h4>
-                <p className="text-sm text-muted-foreground">
-                    {saleOrderToView.shipping_address?.address_line1 || 'N/A'}<br />
-                    {saleOrderToView.shipping_address?.city || 'N/A'}<br />
-                    {saleOrderToView.shipping_address?.country || 'N/A'}
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Items:</h4>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {saleOrderToView.items.map((item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{item.sku}</TableCell>
-                        <TableCell>{item.product_name || 'N/A'}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(item.quantity * item.price).toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              {saleOrderToView.notes && (
-                <div>
-                  <h4 className="font-semibold mb-1">Notes:</h4>
-                  <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">{saleOrderToView.notes}</p>
+            <div className="grid gap-2 py-4 text-sm max-h-[70vh] overflow-y-auto pr-2">
+              <p><strong>Order ID:</strong> {saleOrderToView.order_id}</p>
+              <p><strong>Customer:</strong> {saleOrderToView.customer_name} ({saleOrderToView.customer_email || 'No email'})</p>
+              <p><strong>Order Date:</strong> {new Date(saleOrderToView.order_date).toLocaleDateString()}</p>
+              <p><strong>Total Amount:</strong> ${saleOrderToView.total_amount.toFixed(2)}</p>
+              <p><strong>Status:</strong> <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(saleOrderToView.status)}`}>{saleOrderToView.status}</span></p>
+              <h4 className="font-semibold mt-2">Shipping Address:</h4>
+              <p>{saleOrderToView.shipping_address?.address_line1 || 'N/A'}</p>
+              <p>{saleOrderToView.shipping_address?.city || 'N/A'}, {saleOrderToView.shipping_address?.country || 'N/A'}</p>
+              <h4 className="font-semibold mt-2">Items:</h4>
+              {saleOrderToView.items.map((item, idx) => (
+                <div key={idx} className="border-t pt-1 mt-1">
+                  <p>SKU: {item.sku} ({item.product_name || 'Product name not available'})</p>
+                  <p>Quantity: {item.quantity} @ ${item.price.toFixed(2)} each</p>
+                  <p>Line Total: ${(item.quantity * item.price).toFixed(2)}</p>
                 </div>
-              )}
-               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground pt-2 border-t">
-                <p><strong>Created:</strong> {saleOrderToView.created_at ? new Date(saleOrderToView.created_at).toLocaleString() : 'N/A'}</p>
-                <p><strong>Last Updated:</strong> {saleOrderToView.updated_at ? new Date(saleOrderToView.updated_at).toLocaleString() : 'N/A'}</p>
-              </div>
+              ))}
+              {saleOrderToView.notes && <><h4 className="font-semibold mt-2">Notes:</h4><p className="whitespace-pre-wrap">{saleOrderToView.notes}</p></>}
+              <p className="mt-2 text-xs text-muted-foreground">Created: {saleOrderToView.created_at ? new Date(saleOrderToView.created_at).toLocaleString() : 'N/A'}</p>
+              <p className="text-xs text-muted-foreground">Last Updated: {saleOrderToView.updated_at ? new Date(saleOrderToView.updated_at).toLocaleString() : 'N/A'}</p>
             </div>
           )}
           <DialogFooter>
@@ -489,22 +491,22 @@ export default function SalesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Sales Orders List</CardTitle>
-          <CardDescription>Browse and manage all customer sales orders.</CardDescription>
+          <CardTitle>Sales Orders</CardTitle>
+          <CardDescription>View, create, edit, or delete sales orders.</CardDescription>
         </CardHeader>
         <CardContent>
           {sales.length === 0 && !loading ? (
             <div className="text-center py-10">
               <p className="text-muted-foreground">No sales orders found.</p>
               <Button onClick={openAddModal} className="mt-4">
-                <PlusCircle className="mr-2 h-4 w-4" /> Create Your First Sales Order
+                <PlusCircle className="mr-2 h-4 w-4" /> Create First Sales Order
               </Button>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[120px]">Order #</TableHead>
+                  <TableHead className="w-[150px]">Order #</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Total</TableHead>
@@ -528,10 +530,10 @@ export default function SalesPage() {
                       <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openViewModal(sale)} title="View Details">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openEditModal(sale)} title="Edit Order">
+                      <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openEditModal(sale)} title="Edit Sales Order">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => openDeleteConfirm(sale)} title="Delete Order">
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => openDeleteConfirm(sale)} title="Delete Sales Order">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>

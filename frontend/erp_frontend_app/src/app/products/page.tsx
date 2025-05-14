@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Edit, Trash2, Eye } from 'lucide-react'; // Added Eye for potential view details
+import { PlusCircle, Edit, Trash2, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 interface Product {
@@ -42,7 +42,7 @@ interface Product {
   sku: string;
   name: string;
   description?: string | null;
-  category_name?: string | null; // Changed from category to category_name for clarity from DB
+  category_name?: string | null;
   unit_price?: number | null;
   average_cost?: number | null;
   last_purchase_price?: number | null;
@@ -67,21 +67,30 @@ export default function ProductsPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
-  // Optional: For a separate view details modal if needed
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [productToView, setProductToView] = useState<Product | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    const url = `${API_URL}/products`;
     try {
-      const response = await fetch(`${API_URL}/products`);
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Ignore if response is not JSON
+        }
+        throw new Error(errorMsg);
       }
       const data = await response.json();
       setProducts(data);
     } catch (e: any) {
-      setError(e.message);
+      console.error("Error fetching products:", { url, error: e });
+      setError(e.message || "Failed to fetch products.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +105,7 @@ export default function ProductsPage() {
     setCurrentProduct((prev: any) => ({
       ...prev,
       [name]: name === 'unit_price' || name === 'quantity' || name === 'average_cost' || name === 'last_purchase_price' || name === 'reorder_point' 
-              ? parseFloat(value) || null // Allow null for optional numeric fields
+              ? parseFloat(value) || null
               : value,
     }));
   };
@@ -132,10 +141,9 @@ export default function ProductsPage() {
       alert('SKU and Name are required.');
       return;
     }
-    // Ensure category_name is passed if it exists, or default to a sensible value / handle on backend
     const payload = {
         ...currentProduct,
-        category: currentProduct.category_name, // Align with backend expectation if it's 'category'
+        category: currentProduct.category_name, 
     };
 
     const method = isEditMode ? 'PUT' : 'POST';
@@ -150,13 +158,20 @@ export default function ProductsPage() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Ignore if response is not JSON
+        }
+        throw new Error(errorMsg);
       }
       setIsAddEditModalOpen(false);
       setCurrentProduct(null);
-      fetchProducts(); // Refresh the list
+      fetchProducts();
     } catch (e: any) {
+      console.error(`Error saving product (Method: ${method}):`, { url, payload, error: e });
       alert(`Failed to save product: ${e.message}`);
     }
   };
@@ -168,18 +183,26 @@ export default function ProductsPage() {
 
   const handleDeleteProduct = async () => {
     if (!productToDelete) return;
+    const url = `${API_URL}/products/${productToDelete.sku}`;
     try {
-      const response = await fetch(`${API_URL}/products/${productToDelete.sku}`, {
+      const response = await fetch(url, {
         method: 'DELETE',
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorData.message || errorMsg;
+        } catch (jsonError) {
+            // Ignore if response is not JSON
+        }
+        throw new Error(errorMsg);
       }
       setIsDeleteConfirmOpen(false);
       setProductToDelete(null);
-      fetchProducts(); // Refresh the list
+      fetchProducts();
     } catch (e: any) {
+      console.error("Error deleting product:", { url, productSKU: productToDelete.sku, error: e });
       alert(`Failed to delete product: ${e.message}`);
     }
   };
@@ -204,7 +227,6 @@ export default function ProductsPage() {
         </Button>
       </div>
 
-      {/* Add/Edit Product Dialog */}
       <Dialog open={isAddEditModalOpen} onOpenChange={setIsAddEditModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -240,7 +262,6 @@ export default function ProductsPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="inventory_level_status" className="text-right">Status</Label>
-              {/* Consider making this a select dropdown if statuses are fixed */}
               <Input id="inventory_level_status" name="inventory_level_status" value={currentProduct?.inventory_level_status || 'In Stock'} onChange={handleInputChange} className="col-span-3" />
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
@@ -255,7 +276,6 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -271,7 +291,6 @@ export default function ProductsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* View Product Details Dialog (Optional) */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
