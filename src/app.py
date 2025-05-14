@@ -205,7 +205,7 @@ def record_purchase_api():
     try:
         purchase = purchase_service.record_purchase(data["supplier_name"], data["items"], data["order_date"], data.get("status", "Ordered"))
         if "error" in purchase:
-            logger.error(f"Error recording purchase: {purchase["error"]}")
+            logger.error(f"Error recording purchase: {purchase['error']}")
             return jsonify(purchase), 400
         logger.info(f"Purchase recorded: {purchase}")
         return jsonify(purchase), 201
