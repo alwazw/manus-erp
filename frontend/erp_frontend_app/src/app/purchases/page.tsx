@@ -1,5 +1,5 @@
 
-// Purchases Page - Implements full CRUD for Purchase Orders
+// Purchases Page - Implements full CRUD for Purchase Orders with modern UI
 
 'use client';
 
@@ -21,20 +21,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { PlusCircle, Edit, Trash2, Eye } from 'lucide-react
+import { PlusCircle, Edit, Trash2, Eye, Truck, CheckCircle, XCircle, PackageSearch } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PurchaseItemInput {
   sku: string;
@@ -52,19 +54,21 @@ interface PurchaseOrder {
   po_number: string;
   supplier_name: string;
   supplier_email?: string;
-  order_date: string; // ISO string
-  expected_delivery_date?: string | null; // ISO string
+  order_date: string; 
+  expected_delivery_date?: string | null; 
   items: PurchaseItemDetails[];
   total_amount: number;
   status: string;
   notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface ProductQuickPick {
   sku: string;
   name: string;
-  unit_price: number; // Or last_purchase_price if more relevant for POs
-  quantity?: number; // Available quantity (might not be relevant for PO item selection)
+  unit_price: number; 
+  quantity?: number; 
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
@@ -85,6 +89,11 @@ export default function PurchasesPage() {
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [purchaseOrderToView, setPurchaseOrderToView] = useState<PurchaseOrder | null>(null);
+  
+  const [isStatusUpdateModalOpen, setIsStatusUpdateModalOpen] = useState(false);
+  const [poToUpdateStatus, setPoToUpdateStatus] = useState<PurchaseOrder | null>(null);
+  const [newStatus, setNewStatus] = useState<string>("");
+
 
   const fetchPurchases = useCallback(async () => {
     setLoading(true);
@@ -135,7 +144,7 @@ export default function PurchasesPage() {
         updatedItems[index] = {
             ...updatedItems[index],
             sku: String(value),
-            cost_price: selectedProduct ? selectedProduct.unit_price : 0 // Default cost to product's unit price, can be overridden
+            cost_price: selectedProduct ? (selectedProduct.unit_price || 0) : 0 
         };
     } else {
         updatedItems[index] = { 
@@ -183,11 +192,21 @@ export default function PurchasesPage() {
     setPurchaseOrderToView(purchaseOrder);
     setIsViewModalOpen(true);
   };
+  
+  const openStatusUpdateModal = (po: PurchaseOrder) => {
+    setPoToUpdateStatus(po);
+    setNewStatus(po.status);
+    setIsStatusUpdateModalOpen(true);
+  };
 
   const handleSavePurchaseOrder = async () => {
     if (!currentPurchaseOrder || !currentPurchaseOrder.supplier_name || !currentPurchaseOrder.order_date || purchaseOrderItems.length === 0) {
       alert('Supplier Name, Order Date, and at least one item are required.');
       return;
+    }
+    if (purchaseOrderItems.some(item => !item.sku || item.quantity <= 0 || item.cost_price < 0)) {
+        alert('All items must have a SKU, quantity greater than 0, and a non-negative cost price.');
+        return;
     }
 
     const payload = {
@@ -197,59 +216,12 @@ export default function PurchasesPage() {
       expected_delivery_date: currentPurchaseOrder.expected_delivery_date ? new Date(currentPurchaseOrder.expected_delivery_date).toISOString() : null
     };
 
-    // For edit mode, the backend currently only supports status updates via a separate endpoint.
-    // A full PUT for editing all PO details would require backend changes.
-    // This example will proceed as if a full PUT is available for simplicity, or POST for new.
-    const method = isEditMode && currentPurchaseOrder.po_id ? 'PUT' : 'POST'; 
-    let url = `${API_URL}/purchases`;
-    if (isEditMode && currentPurchaseOrder.po_id) {
-        // If we had a general PUT endpoint for POs: url = `${API_URL}/purchases/${currentPurchaseOrder.po_id}`;
-        // For now, if editing, we might just update status or specific fields if backend supports it.
-        // This example assumes a general PUT for simplicity, which might not align with current backend SalesService update logic.
-        // For Purchases, let's assume we are updating status if editing, or creating if new.
-        // The backend record_purchase can be adapted or a new update_purchase_order endpoint created.
-        // For now, we'll focus on creating new. Edit will be limited to status update via separate action.
-        if (method === 'PUT') {
-             alert("Full edit for Purchase Orders is not yet implemented. Only status updates are typically handled separately. This save will attempt to update status if that's the only change or re-create if it's a new PO structure.");
-             // Potentially, only allow status changes here or call a specific status update endpoint.
-             // For simplicity, this example will try to POST if it's a new structure, which isn't ideal for PUT.
-             // A proper PUT endpoint on the backend is needed for full PO edit.
-             // Let's assume for now edit only changes status, handled by a separate button/action.
-             // So, this save button in edit mode might be disabled or have different logic.
-             // For this iteration, let's make the save button primarily for ADDING new POs.
-             // And edit will be handled by a status update mechanism.
-             // This means the 'isEditMode' logic for save needs refinement based on backend capabilities.
-
-             // For now, let's simplify: if isEditMode, we assume we are updating status (if changed).
-             // This is a placeholder for a more robust edit.
-             if (currentPurchaseOrder.status !== purchases.find(p => p.po_id === currentPurchaseOrder.po_id)?.status) {
-                try {
-                    const statusUpdateResponse = await fetch(`${API_URL}/purchases/${currentPurchaseOrder.po_id}/status`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: currentPurchaseOrder.status })
-                    });
-                    if (!statusUpdateResponse.ok) {
-                        const errorData = await statusUpdateResponse.json();
-                        throw new Error(errorData.error || `HTTP error! status: ${statusUpdateResponse.status}`);
-                    }
-                    fetchPurchases();
-                    setIsAddEditModalOpen(false);
-                    return;
-                } catch (e: any) {
-                    alert(`Failed to update PO status: ${e.message}`);
-                    return;
-                }
-             }
-             alert("No changes detected or full edit not supported via this form yet. Use status update actions.");
-             setIsAddEditModalOpen(false);
-             return;
-        }
-    }
+    const method = isEditMode && currentPurchaseOrder.po_id ? 'PUT' : 'POST';
+    const url = isEditMode && currentPurchaseOrder.po_id ? `${API_URL}/purchases/${currentPurchaseOrder.po_id}` : `${API_URL}/purchases`;
 
     try {
       const response = await fetch(url, {
-        method: 'POST', // Forcing POST for new PO creation
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -262,15 +234,16 @@ export default function PurchasesPage() {
       setIsAddEditModalOpen(false);
       setCurrentPurchaseOrder(null);
       setPurchaseOrderItems([]);
-      fetchPurchases(); // Refresh the list
+      fetchPurchases();
     } catch (e: any) {
       alert(`Failed to save purchase order: ${e.message}`);
     }
   };
-
-  const handleUpdateStatus = async (poId: number, newStatus: string) => {
+  
+  const handleConfirmStatusUpdate = async () => {
+    if (!poToUpdateStatus || !poToUpdateStatus.po_id || !newStatus) return;
     try {
-        const response = await fetch(`${API_URL}/purchases/${poId}/status`, {
+        const response = await fetch(`${API_URL}/purchases/${poToUpdateStatus.po_id}/status`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
@@ -279,7 +252,9 @@ export default function PurchasesPage() {
             const errorData = await response.json();
             throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
-        fetchPurchases(); // Refresh list to show updated status and potentially updated inventory/costs
+        fetchPurchases();
+        setIsStatusUpdateModalOpen(false);
+        setPoToUpdateStatus(null);
     } catch (e: any) {
         alert(`Failed to update PO status: ${e.message}`);
     }
@@ -302,103 +277,136 @@ export default function PurchasesPage() {
       }
       setIsDeleteConfirmOpen(false);
       setPurchaseOrderToDelete(null);
-      fetchPurchases(); // Refresh the list
+      fetchPurchases();
     } catch (e: any) {
       alert(`Failed to delete purchase order: ${e.message}`);
     }
   };
+  
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'ordered': return 'bg-blue-100 text-blue-700';
+      case 'shipped': return 'bg-purple-100 text-purple-700';
+      case 'received': return 'bg-green-100 text-green-700';
+      case 'cancelled': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
 
   if (loading && purchases.length === 0) {
-    return <p className="p-4">Loading purchase orders...</p>;
+    return <p className="p-6">Loading purchase orders...</p>;
   }
 
   if (error) {
-    return <p className="p-4">Error fetching purchase orders: {error}</p>;
+    return <p className="p-6 text-destructive">Error fetching purchase orders: {error}</p>;
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Purchase Order Management</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Purchase Order Management</h1>
+          <p className="text-muted-foreground">Track and manage all supplier purchase orders.</p>
+        </div>
         <Button onClick={openAddModal}>
           <PlusCircle className="mr-2 h-4 w-4" /> Create New Purchase Order
         </Button>
       </div>
 
-      {/* Add/Edit Purchase Order Dialog */}
       <Dialog open={isAddEditModalOpen} onOpenChange={setIsAddEditModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{isEditMode ? 'Edit Purchase Order (Status Only)' : 'Create New Purchase Order'}</DialogTitle>
+            <DialogTitle>{isEditMode ? 'Edit Purchase Order' : 'Create New Purchase Order'}</DialogTitle>
             <DialogDescription>
-              {isEditMode ? 'Update the status of the purchase order.' : 'Fill in the details for the new purchase order.'}
+              {isEditMode ? 'Update the details of the purchase order.' : 'Fill in the details for the new purchase order.'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="supplier_name" className="text-right">Supplier Name</Label>
-              <Input id="supplier_name" name="supplier_name" value={currentPurchaseOrder?.supplier_name || ''} onChange={handleInputChange} className="col-span-3" disabled={isEditMode} />
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="supplier_name">Supplier Name</Label>
+                <Input id="supplier_name" name="supplier_name" value={currentPurchaseOrder?.supplier_name || ''} onChange={handleInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="supplier_email">Supplier Email</Label>
+                <Input id="supplier_email" name="supplier_email" type="email" value={currentPurchaseOrder?.supplier_email || ''} onChange={handleInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="order_date">Order Date</Label>
+                <Input id="order_date" name="order_date" type="date" value={currentPurchaseOrder?.order_date || ''} onChange={handleInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="expected_delivery_date">Expected Delivery Date</Label>
+                <Input id="expected_delivery_date" name="expected_delivery_date" type="date" value={currentPurchaseOrder?.expected_delivery_date || ''} onChange={handleInputChange} />
+              </div>
+              {isEditMode && (
+                <div>
+                  <Label htmlFor="status">Status</Label>
+                  <Select 
+                      name="status"
+                      value={currentPurchaseOrder?.status || 'Ordered'}
+                      onValueChange={(value) => setCurrentPurchaseOrder(prev => ({...prev, status: value}))}
+                  >
+                      <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="Ordered">Ordered</SelectItem>
+                          <SelectItem value="Shipped">Shipped</SelectItem>
+                          <SelectItem value="Received">Received</SelectItem>
+                          <SelectItem value="Cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="supplier_email" className="text-right">Supplier Email</Label>
-              <Input id="supplier_email" name="supplier_email" type="email" value={currentPurchaseOrder?.supplier_email || ''} onChange={handleInputChange} className="col-span-3" disabled={isEditMode} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="order_date" className="text-right">Order Date</Label>
-              <Input id="order_date" name="order_date" type="date" value={currentPurchaseOrder?.order_date || ''} onChange={handleInputChange} className="col-span-3" disabled={isEditMode} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="expected_delivery_date" className="text-right">Expected Delivery</Label>
-              <Input id="expected_delivery_date" name="expected_delivery_date" type="date" value={currentPurchaseOrder?.expected_delivery_date || ''} onChange={handleInputChange} className="col-span-3" disabled={isEditMode} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right">Status</Label>
-              <Input id="status" name="status" value={currentPurchaseOrder?.status || 'Ordered'} onChange={handleInputChange} className="col-span-3" />
-            </div>
-            
-            {!isEditMode && (
-              <>
-                <h3 className="text-lg font-semibold mt-4 col-span-4">Items</h3>
-                {purchaseOrderItems.map((item, index) => (
-                  <div key={index} className="grid grid-cols-10 items-center gap-2 border-b pb-2 mb-2">
-                    <div className="col-span-4">
-                      <Label htmlFor={`item-sku-${index}`}>Product SKU</Label>
-                      <select 
-                        id={`item-sku-${index}`} 
-                        value={item.sku}
-                        onChange={(e) => handleItemChange(index, 'sku', e.target.value)}
-                        className="w-full p-2 border rounded-md"
-                      >
-                        <option value="">Select Product</option>
+
+            <h3 className="text-lg font-semibold mt-4">Items</h3>
+            {purchaseOrderItems.map((item, index) => (
+              <div key={index} className="grid grid-cols-12 items-end gap-2 border-b pb-3 mb-2">
+                <div className="col-span-5">
+                  <Label htmlFor={`item-sku-${index}`}>Product</Label>
+                  <Select 
+                    value={item.sku}
+                    onValueChange={(value) => handleItemChange(index, 'sku', value)}
+                    disabled={isEditMode} // Disable item editing in edit mode for simplicity, focus on status
+                  >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select Product" />
+                    </SelectTrigger>
+                    <SelectContent>
                         {productsForSelection.map(p => (
-                            <option key={p.sku} value={p.sku}>{p.name} (SKU: {p.sku})</option>
+                            <SelectItem key={p.sku} value={p.sku}>{p.name} (SKU: {p.sku})</SelectItem>
                         ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <Label htmlFor={`item-quantity-${index}`}>Quantity</Label>
-                      <Input id={`item-quantity-${index}`} type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} />
-                    </div>
-                    <div className="col-span-2">
-                      <Label htmlFor={`item-cost_price-${index}`}>Cost Price</Label>
-                      <Input id={`item-cost_price-${index}`} type="number" value={item.cost_price} onChange={(e) => handleItemChange(index, 'cost_price', e.target.value)} />
-                    </div>
-                    <div className="col-span-2 flex items-end">
-                      <Button type="button" variant="outline" size="icon" onClick={() => removeItem(index)} className="mt-1 text-red-500 hover:text-red-700">
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-3">
+                  <Label htmlFor={`item-quantity-${index}`}>Quantity</Label>
+                  <Input id={`item-quantity-${index}`} type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} disabled={isEditMode} />
+                </div>
+                <div className="col-span-3">
+                  <Label htmlFor={`item-cost_price-${index}`}>Cost Price</Label>
+                  <Input id={`item-cost_price-${index}`} type="number" value={item.cost_price} onChange={(e) => handleItemChange(index, 'cost_price', e.target.value)} disabled={isEditMode} />
+                </div>
+                {!isEditMode && (
+                    <div className="col-span-1">
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-destructive hover:text-destructive/80">
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                    </Button>
                     </div>
-                  </div>
-                ))}
-                <Button type="button" variant="outline" onClick={addItem} className="mt-2 col-span-4">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add Item
+                )}
+              </div>
+            ))}
+            {!isEditMode && (
+                <Button type="button" variant="outline" onClick={addItem} className="mt-2">
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Item
                 </Button>
-              </>
             )}
             
-            <div className="grid grid-cols-4 items-start gap-4 mt-4">
-                <Label htmlFor="notes" className="text-right pt-2">Notes</Label>
-                <Textarea id="notes" name="notes" value={currentPurchaseOrder?.notes || ''} onChange={handleInputChange} className="col-span-3" placeholder="Optional notes for the order..." disabled={isEditMode}/>
+            <div className="mt-4">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea id="notes" name="notes" value={currentPurchaseOrder?.notes || ''} onChange={handleInputChange} placeholder="Optional notes for the purchase order..."/>
             </div>
 
           </div>
@@ -409,46 +417,72 @@ export default function PurchasesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the purchase order "{purchaseOrderToDelete?.po_number}". 
-              Note: If this PO was already marked as 'Received', inventory will NOT be automatically reverted by this delete action.
+              This action cannot be undone. This will permanently delete the purchase order "{purchaseOrderToDelete?.po_number}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPurchaseOrderToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePurchaseOrder} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeletePurchaseOrder} variant="destructive">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* View Purchase Order Details Dialog */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Purchase Order Details: {purchaseOrderToView?.po_number}</DialogTitle>
+            <DialogDescription>
+              Supplier: {purchaseOrderToView?.supplier_name} ({purchaseOrderToView?.supplier_email})
+            </DialogDescription>
           </DialogHeader>
           {purchaseOrderToView && (
-            <div className="py-4 max-h-[70vh] overflow-y-auto pr-2">
-              <p><strong>Supplier:</strong> {purchaseOrderToView.supplier_name}</p>
-              <p><strong>Email:</strong> {purchaseOrderToView.supplier_email || 'N/A'}</p>
-              <p><strong>Order Date:</strong> {new Date(purchaseOrderToView.order_date).toLocaleDateString()}</p>
-              <p><strong>Expected Delivery:</strong> {purchaseOrderToView.expected_delivery_date ? new Date(purchaseOrderToView.expected_delivery_date).toLocaleDateString() : 'N/A'}</p>
-              <p><strong>Status:</strong> {purchaseOrderToView.status}</p>
-              <p><strong>Total Amount:</strong> ${purchaseOrderToView.total_amount.toFixed(2)}</p>
-              {purchaseOrderToView.notes && <p className="mt-2"><strong>Notes:</strong> {purchaseOrderToView.notes}</p>}
-              <h4 className="font-semibold mt-3 mb-1">Items:</h4>
-              <ul className="list-disc list-inside ml-4 text-sm">
-                {purchaseOrderToView.items.map((item, index) => (
-                  <li key={index}>
-                    {item.product_name || item.sku} - Qty: {item.quantity}, Cost: ${item.cost_price.toFixed(2)}, Total: ${(item.quantity * item.cost_price).toFixed(2)}
-                  </li>
-                ))}
-              </ul>
+            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <p><strong>Order Date:</strong> {new Date(purchaseOrderToView.order_date).toLocaleDateString()}</p>
+                <p><strong>Expected Delivery:</strong> {purchaseOrderToView.expected_delivery_date ? new Date(purchaseOrderToView.expected_delivery_date).toLocaleDateString() : 'N/A'}</p>
+                <p><strong>Status:</strong> <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(purchaseOrderToView.status)}`}>{purchaseOrderToView.status}</span></p>
+                <p><strong>Total Amount:</strong> ${purchaseOrderToView.total_amount.toFixed(2)}</p>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-1">Items:</h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Cost Price</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {purchaseOrderToView.items.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{item.sku}</TableCell>
+                        <TableCell>{item.product_name || 'N/A'}</TableCell>
+                        <TableCell className="text-right">{item.quantity}</TableCell>
+                        <TableCell className="text-right">${item.cost_price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${(item.quantity * item.cost_price).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {purchaseOrderToView.notes && (
+                <div>
+                  <h4 className="font-semibold mb-1">Notes:</h4>
+                  <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">{purchaseOrderToView.notes}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground pt-2 border-t">
+                <p><strong>Created:</strong> {purchaseOrderToView.created_at ? new Date(purchaseOrderToView.created_at).toLocaleString() : 'N/A'}</p>
+                <p><strong>Last Updated:</strong> {purchaseOrderToView.updated_at ? new Date(purchaseOrderToView.updated_at).toLocaleString() : 'N/A'}</p>
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -457,60 +491,95 @@ export default function PurchasesPage() {
         </DialogContent>
       </Dialog>
 
-      {purchases.length === 0 && !loading ? (
-        <p>No purchase orders found. Click "Create New Purchase Order" to get started.</p>
-      ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>PO #</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Order Date</TableHead>
-                <TableHead>Expected Delivery</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {purchases.map((purchase) => (
-                <TableRow key={purchase.po_id}>
-                  <TableCell className="font-medium">{purchase.po_number}</TableCell>
-                  <TableCell>{purchase.supplier_name}</TableCell>
-                  <TableCell>{new Date(purchase.order_date).toLocaleDateString()}</TableCell>
-                  <TableCell>{purchase.expected_delivery_date ? new Date(purchase.expected_delivery_date).toLocaleDateString() : 'N/A'}</TableCell>
-                  <TableCell className="text-right">${purchase.total_amount.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <select 
-                        value={purchase.status}
-                        onChange={(e) => handleUpdateStatus(purchase.po_id!, e.target.value)}
-                        className={`px-2 py-1 text-xs font-semibold rounded-full border-0 focus:ring-0 appearance-none ${purchase.status === 'Received' ? 'bg-green-100 text-green-700' : purchase.status === 'Ordered' ? 'bg-blue-100 text-blue-700' : purchase.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}
-                    >
-                        <option value="Pending">Pending</option>
-                        <option value="Ordered">Ordered</option>
-                        <option value="Shipped">Shipped</option>
-                        <option value="Received">Received</option>
-                        <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="mr-1" onClick={() => openViewModal(purchase)} title="View Details">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    {/* <Button variant="ghost" size="icon" className="mr-1" onClick={() => openEditModal(purchase)} title="Edit PO (Status)">
-                      <Edit className="h-4 w-4" />
-                    </Button> */}
-                    <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => openDeleteConfirm(purchase)} title="Delete PO">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+      {/* Status Update Modal */}
+      <Dialog open={isStatusUpdateModalOpen} onOpenChange={setIsStatusUpdateModalOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Update PO Status: {poToUpdateStatus?.po_number}</DialogTitle>
+                <DialogDescription>Select the new status for this purchase order. If marking as "Received", inventory will be updated.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                <Label htmlFor="new_status">New Status</Label>
+                <Select value={newStatus} onValueChange={setNewStatus}>
+                    <SelectTrigger id="new_status">
+                        <SelectValue placeholder="Select new status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Ordered">Ordered</SelectItem>
+                        <SelectItem value="Shipped">Shipped</SelectItem>
+                        <SelectItem value="Received">Received</SelectItem>
+                        <SelectItem value="Cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsStatusUpdateModalOpen(false)}>Cancel</Button>
+                <Button onClick={handleConfirmStatusUpdate}>Update Status</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Purchase Orders List</CardTitle>
+          <CardDescription>Browse and manage all supplier purchase orders.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {purchases.length === 0 && !loading ? (
+            <div className="text-center py-10">
+              <p className="text-muted-foreground">No purchase orders found.</p>
+              <Button onClick={openAddModal} className="mt-4">
+                <PlusCircle className="mr-2 h-4 w-4" /> Create Your First Purchase Order
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[120px]">PO #</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Order Date</TableHead>
+                  <TableHead>Expected Delivery</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right w-[150px]">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+              </TableHeader>
+              <TableBody>
+                {purchases.map((po) => (
+                  <TableRow key={po.po_id}>
+                    <TableCell className="font-medium">{po.po_number}</TableCell>
+                    <TableCell>{po.supplier_name}</TableCell>
+                    <TableCell>{new Date(po.order_date).toLocaleDateString()}</TableCell>
+                    <TableCell>{po.expected_delivery_date ? new Date(po.expected_delivery_date).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="text-right">${po.total_amount.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(po.status)}`}>
+                        {po.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openViewModal(po)} title="View Details">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openStatusUpdateModal(po)} title="Update Status">
+                        <Truck className="h-4 w-4" />
+                      </Button>
+                      {/* Full edit might be re-enabled if backend supports full PUT for POs */}
+                      {/* <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openEditModal(po)} title="Edit Order">
+                        <Edit className="h-4 w-4" />
+                      </Button> */}
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => openDeleteConfirm(po)} title="Delete Order">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

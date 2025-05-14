@@ -1,4 +1,6 @@
 
+// Sales Page - Implements full CRUD for Sales Orders with modern UI
+
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -18,27 +20,28 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea"; // Assuming you might want a notes field
-import { PlusCircle, Edit, Trash2, Eye } from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { PlusCircle, Edit, Trash2, Eye, DollarSign, Hash, CalendarDays, UserCircle, Truck } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface SaleItemInput {
   sku: string;
   quantity: number;
-  price: number; // Price at the time of sale for this item
+  price: number; 
 }
 
 interface SaleItemDetails extends SaleItemInput {
@@ -51,7 +54,7 @@ interface SaleOrder {
   order_number: string;
   customer_name: string;
   customer_email?: string;
-  order_date: string; // Should be ISO string
+  order_date: string; 
   items: SaleItemDetails[];
   total_amount: number;
   status: string;
@@ -61,13 +64,15 @@ interface SaleOrder {
     country?: string;
   };
   notes?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface ProductQuickPick {
   sku: string;
   name: string;
   unit_price: number;
-  quantity?: number; // Available quantity
+  quantity?: number; 
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
@@ -115,7 +120,6 @@ export default function SalesPage() {
       setProductsForSelection(data.map((p: any) => ({ sku: p.sku, name: p.name, unit_price: p.unit_price, quantity: p.quantity })));
     } catch (e: any) {
       console.error("Failed to fetch products for selection:", e.message);
-      // Don't block sales page for this, but log error
     }
   }, []);
 
@@ -174,7 +178,7 @@ export default function SalesPage() {
     setCurrentSaleOrder({
       customer_name: '',
       customer_email: '',
-      order_date: new Date().toISOString().split('T')[0], // Default to today
+      order_date: new Date().toISOString().split('T')[0],
       status: 'Pending',
       shipping_address: { address_line1: '', city: '', country: '' },
       notes: ''
@@ -203,6 +207,10 @@ export default function SalesPage() {
       alert('Customer Name, Order Date, and at least one item are required.');
       return;
     }
+    if (saleOrderItems.some(item => !item.sku || item.quantity <= 0 || item.price < 0)) {
+        alert('All items must have a SKU, quantity greater than 0, and a non-negative price.');
+        return;
+    }
 
     const payload = {
       ...currentSaleOrder,
@@ -210,13 +218,8 @@ export default function SalesPage() {
       order_date: currentSaleOrder.order_date ? new Date(currentSaleOrder.order_date).toISOString() : new Date().toISOString()
     };
 
-    const method = isEditMode ? 'PUT' : 'POST'; // Assuming PUT for update, though backend might only support status update
+    const method = isEditMode ? 'PUT' : 'POST';
     const url = isEditMode && currentSaleOrder.order_id ? `${API_URL}/sales/${currentSaleOrder.order_id}` : `${API_URL}/sales`;
-
-    // Note: The current backend SalesService update is only for status. 
-    // A full PUT for editing all order details would be more complex.
-    // For now, if isEditMode, we might only allow status updates or specific fields.
-    // This example optimistically tries to send the whole payload for POST/PUT.
 
     try {
       const response = await fetch(url, {
@@ -233,7 +236,7 @@ export default function SalesPage() {
       setIsAddEditModalOpen(false);
       setCurrentSaleOrder(null);
       setSaleOrderItems([]);
-      fetchSales(); // Refresh the list
+      fetchSales(); 
     } catch (e: any) {
       alert(`Failed to save sales order: ${e.message}`);
     }
@@ -256,32 +259,45 @@ export default function SalesPage() {
       }
       setIsDeleteConfirmOpen(false);
       setSaleOrderToDelete(null);
-      fetchSales(); // Refresh the list
+      fetchSales(); 
     } catch (e: any) {
       alert(`Failed to delete sales order: ${e.message}`);
     }
   };
 
-  if (loading && sales.length === 0) { // Show loading only on initial load
-    return <p className="p-4">Loading sales orders...</p>;
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'pending': return 'bg-yellow-100 text-yellow-700';
+      case 'processing': return 'bg-blue-100 text-blue-700';
+      case 'shipped': return 'bg-purple-100 text-purple-700';
+      case 'delivered': return 'bg-green-100 text-green-700';
+      case 'cancelled': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  if (loading && sales.length === 0) {
+    return <p className="p-6">Loading sales orders...</p>;
   }
 
   if (error) {
-    return <p className="p-4">Error fetching sales orders: {error}</p>;
+    return <p className="p-6 text-destructive">Error fetching sales orders: {error}</p>;
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Sales Order Management</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Sales Order Management</h1>
+          <p className="text-muted-foreground">Track and manage all customer sales orders.</p>
+        </div>
         <Button onClick={openAddModal}>
           <PlusCircle className="mr-2 h-4 w-4" /> Create New Sales Order
         </Button>
       </div>
 
-      {/* Add/Edit Sales Order Dialog */}
       <Dialog open={isAddEditModalOpen} onOpenChange={setIsAddEditModalOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{isEditMode ? 'Edit Sales Order' : 'Create New Sales Order'}</DialogTitle>
             <DialogDescription>
@@ -289,76 +305,97 @@ export default function SalesPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="customer_name" className="text-right">Customer Name</Label>
-              <Input id="customer_name" name="customer_name" value={currentSaleOrder?.customer_name || ''} onChange={handleInputChange} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="customer_email" className="text-right">Customer Email</Label>
-              <Input id="customer_email" name="customer_email" type="email" value={currentSaleOrder?.customer_email || ''} onChange={handleInputChange} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="order_date" className="text-right">Order Date</Label>
-              <Input id="order_date" name="order_date" type="date" value={currentSaleOrder?.order_date || ''} onChange={handleInputChange} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right">Status</Label>
-              <Input id="status" name="status" value={currentSaleOrder?.status || 'Pending'} onChange={handleInputChange} className="col-span-3" />
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="customer_name">Customer Name</Label>
+                <Input id="customer_name" name="customer_name" value={currentSaleOrder?.customer_name || ''} onChange={handleInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="customer_email">Customer Email</Label>
+                <Input id="customer_email" name="customer_email" type="email" value={currentSaleOrder?.customer_email || ''} onChange={handleInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="order_date">Order Date</Label>
+                <Input id="order_date" name="order_date" type="date" value={currentSaleOrder?.order_date || ''} onChange={handleInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select 
+                    name="status"
+                    value={currentSaleOrder?.status || 'Pending'}
+                    onValueChange={(value) => setCurrentSaleOrder(prev => ({...prev, status: value}))}
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Pending">Pending</SelectItem>
+                        <SelectItem value="Processing">Processing</SelectItem>
+                        <SelectItem value="Shipped">Shipped</SelectItem>
+                        <SelectItem value="Delivered">Delivered</SelectItem>
+                        <SelectItem value="Cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
             </div>
             
-            <h3 className="text-lg font-semibold mt-4 col-span-4">Shipping Address</h3>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address_line1" className="text-right">Address Line 1</Label>
-              <Input id="address_line1" name="address_line1" value={currentSaleOrder?.shipping_address?.address_line1 || ''} onChange={handleShippingInputChange} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="city" className="text-right">City</Label>
-              <Input id="city" name="city" value={currentSaleOrder?.shipping_address?.city || ''} onChange={handleShippingInputChange} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="country" className="text-right">Country</Label>
-              <Input id="country" name="country" value={currentSaleOrder?.shipping_address?.country || ''} onChange={handleShippingInputChange} className="col-span-3" />
+            <h3 className="text-lg font-semibold mt-4">Shipping Address</h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="address_line1">Address Line 1</Label>
+                <Input id="address_line1" name="address_line1" value={currentSaleOrder?.shipping_address?.address_line1 || ''} onChange={handleShippingInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="city">City</Label>
+                <Input id="city" name="city" value={currentSaleOrder?.shipping_address?.city || ''} onChange={handleShippingInputChange} />
+              </div>
+              <div>
+                <Label htmlFor="country">Country</Label>
+                <Input id="country" name="country" value={currentSaleOrder?.shipping_address?.country || ''} onChange={handleShippingInputChange} />
+              </div>
             </div>
 
-            <h3 className="text-lg font-semibold mt-4 col-span-4">Items</h3>
+            <h3 className="text-lg font-semibold mt-4">Items</h3>
             {saleOrderItems.map((item, index) => (
-              <div key={index} className="grid grid-cols-10 items-center gap-2 border-b pb-2 mb-2">
-                <div className="col-span-4">
-                  <Label htmlFor={`item-sku-${index}`}>Product SKU</Label>
-                  <select 
-                    id={`item-sku-${index}`} 
+              <div key={index} className="grid grid-cols-12 items-end gap-2 border-b pb-3 mb-2">
+                <div className="col-span-5">
+                  <Label htmlFor={`item-sku-${index}`}>Product</Label>
+                  <Select 
                     value={item.sku}
-                    onChange={(e) => handleItemChange(index, 'sku', e.target.value)}
-                    className="w-full p-2 border rounded-md"
+                    onValueChange={(value) => handleItemChange(index, 'sku', value)}
                   >
-                    <option value="">Select Product</option>
-                    {productsForSelection.map(p => (
-                        <option key={p.sku} value={p.sku}>{p.name} (SKU: {p.sku}) - Stock: {p.quantity ?? 'N/A'}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select Product" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {productsForSelection.map(p => (
+                            <SelectItem key={p.sku} value={p.sku}>{p.name} (SKU: {p.sku}) - Stock: {p.quantity ?? 'N/A'}</SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-3">
                   <Label htmlFor={`item-quantity-${index}`}>Quantity</Label>
                   <Input id={`item-quantity-${index}`} type="number" value={item.quantity} onChange={(e) => handleItemChange(index, 'quantity', e.target.value)} />
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-3">
                   <Label htmlFor={`item-price-${index}`}>Price</Label>
                   <Input id={`item-price-${index}`} type="number" value={item.price} onChange={(e) => handleItemChange(index, 'price', e.target.value)} />
                 </div>
-                <div className="col-span-2 flex items-end">
-                  <Button type="button" variant="outline" size="icon" onClick={() => removeItem(index)} className="mt-1 text-red-500 hover:text-red-700">
+                <div className="col-span-1">
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-destructive hover:text-destructive/80">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             ))}
-            <Button type="button" variant="outline" onClick={addItem} className="mt-2 col-span-4">
+            <Button type="button" variant="outline" onClick={addItem} className="mt-2">
               <PlusCircle className="mr-2 h-4 w-4" /> Add Item
             </Button>
             
-            <div className="grid grid-cols-4 items-start gap-4 mt-4">
-                <Label htmlFor="notes" className="text-right pt-2">Notes</Label>
-                <Textarea id="notes" name="notes" value={currentSaleOrder?.notes || ''} onChange={handleInputChange} className="col-span-3" placeholder="Optional notes for the order..."/>
+            <div className="mt-4">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea id="notes" name="notes" value={currentSaleOrder?.notes || ''} onChange={handleInputChange} placeholder="Optional notes for the order..."/>
             </div>
 
           </div>
@@ -369,7 +406,6 @@ export default function SalesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -380,40 +416,69 @@ export default function SalesPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSaleOrderToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteSaleOrder} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteSaleOrder} variant="destructive">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* View Sales Order Details Dialog */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Sales Order Details: {saleOrderToView?.order_number}</DialogTitle>
+            <DialogDescription>
+              Customer: {saleOrderToView?.customer_name} ({saleOrderToView?.customer_email})
+            </DialogDescription>
           </DialogHeader>
           {saleOrderToView && (
-            <div className="py-4 max-h-[70vh] overflow-y-auto pr-2">
-              <p><strong>Customer:</strong> {saleOrderToView.customer_name}</p>
-              <p><strong>Email:</strong> {saleOrderToView.customer_email || 'N/A'}</p>
-              <p><strong>Order Date:</strong> {new Date(saleOrderToView.order_date).toLocaleDateString()}</p>
-              <p><strong>Status:</strong> {saleOrderToView.status}</p>
-              <p><strong>Total Amount:</strong> ${saleOrderToView.total_amount.toFixed(2)}</p>
-              {saleOrderToView.shipping_address && (
-                <div className="mt-2">
-                  <p><strong>Shipping Address:</strong></p>
-                  <p className="ml-4">{saleOrderToView.shipping_address.address_line1}</p>
-                  <p className="ml-4">{saleOrderToView.shipping_address.city}, {saleOrderToView.shipping_address.country}</p>
+            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <p><strong>Order Date:</strong> {new Date(saleOrderToView.order_date).toLocaleDateString()}</p>
+                <p><strong>Status:</strong> <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(saleOrderToView.status)}`}>{saleOrderToView.status}</span></p>
+                <p><strong>Total Amount:</strong> ${saleOrderToView.total_amount.toFixed(2)}</p>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-1">Shipping Address:</h4>
+                <p className="text-sm text-muted-foreground">
+                    {saleOrderToView.shipping_address?.address_line1 || 'N/A'}<br />
+                    {saleOrderToView.shipping_address?.city || 'N/A'}<br />
+                    {saleOrderToView.shipping_address?.country || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-1">Items:</h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {saleOrderToView.items.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{item.sku}</TableCell>
+                        <TableCell>{item.product_name || 'N/A'}</TableCell>
+                        <TableCell className="text-right">{item.quantity}</TableCell>
+                        <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${(item.quantity * item.price).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {saleOrderToView.notes && (
+                <div>
+                  <h4 className="font-semibold mb-1">Notes:</h4>
+                  <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">{saleOrderToView.notes}</p>
                 </div>
               )}
-              {saleOrderToView.notes && <p className="mt-2"><strong>Notes:</strong> {saleOrderToView.notes}</p>}
-              <h4 className="font-semibold mt-3 mb-1">Items:</h4>
-              <ul className="list-disc list-inside ml-4 text-sm">
-                {saleOrderToView.items.map((item, index) => (
-                  <li key={index}>
-                    {item.product_name || item.sku} - Qty: {item.quantity}, Price: ${item.price.toFixed(2)}, Total: ${(item.quantity * item.price).toFixed(2)}
-                  </li>
-                ))}
-              </ul>
+               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground pt-2 border-t">
+                <p><strong>Created:</strong> {saleOrderToView.created_at ? new Date(saleOrderToView.created_at).toLocaleString() : 'N/A'}</p>
+                <p><strong>Last Updated:</strong> {saleOrderToView.updated_at ? new Date(saleOrderToView.updated_at).toLocaleString() : 'N/A'}</p>
+              </div>
             </div>
           )}
           <DialogFooter>
@@ -422,50 +487,61 @@ export default function SalesPage() {
         </DialogContent>
       </Dialog>
 
-      {sales.length === 0 && !loading ? (
-        <p>No sales orders found. Click "Create New Sales Order" to get started.</p>
-      ) : (
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Order #</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sales.map((sale) => (
-                <TableRow key={sale.order_id}>
-                  <TableCell className="font-medium">{sale.order_number}</TableCell>
-                  <TableCell>{sale.customer_name}</TableCell>
-                  <TableCell>{new Date(sale.order_date).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">${sale.total_amount.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${sale.status === 'Completed' ? 'bg-green-100 text-green-700' : sale.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' : sale.status === 'Shipped' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                      {sale.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="mr-1" onClick={() => openViewModal(sale)} title="View Details">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="mr-1" onClick={() => openEditModal(sale)} title="Edit Order">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => openDeleteConfirm(sale)} title="Delete Order">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+      <Card>
+        <CardHeader>
+          <CardTitle>Sales Orders List</CardTitle>
+          <CardDescription>Browse and manage all customer sales orders.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sales.length === 0 && !loading ? (
+            <div className="text-center py-10">
+              <p className="text-muted-foreground">No sales orders found.</p>
+              <Button onClick={openAddModal} className="mt-4">
+                <PlusCircle className="mr-2 h-4 w-4" /> Create Your First Sales Order
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[120px]">Order #</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right w-[120px]">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+              </TableHeader>
+              <TableBody>
+                {sales.map((sale) => (
+                  <TableRow key={sale.order_id}>
+                    <TableCell className="font-medium">{sale.order_number}</TableCell>
+                    <TableCell>{sale.customer_name}</TableCell>
+                    <TableCell>{new Date(sale.order_date).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">${sale.total_amount.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(sale.status)}`}>
+                        {sale.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openViewModal(sale)} title="View Details">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => openEditModal(sale)} title="Edit Order">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => openDeleteConfirm(sale)} title="Delete Order">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
