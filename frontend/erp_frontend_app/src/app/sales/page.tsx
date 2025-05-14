@@ -75,7 +75,7 @@ interface ProductQuickPick {
   quantity?: number; 
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 export default function SalesPage() {
   const [sales, setSales] = useState<SaleOrder[]>([]);
