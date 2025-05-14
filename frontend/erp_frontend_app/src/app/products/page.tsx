@@ -20,13 +20,24 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
 
 interface Product {
-  product_id: number;
+  product_id?: number; // Optional for new products before they get an ID from DB
   sku: string;
   name: string;
   description?: string | null;
@@ -47,16 +58,13 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
-  const [newProduct, setNewProduct] = useState<Partial<Product>>({
-    sku: '',
-    name: '',
-    category: '',
-    unit_price: 0,
-    quantity: 0,
-    description: '',
-    inventory_level_status: 'In Stock',
-  });
+  
+  const [isAddEditModalOpen, setIsAddEditModalOpen] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState<Partial<Product> | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -80,34 +88,83 @@ export default function ProductsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setNewProduct((prev) => ({
+    setCurrentProduct((prev) => ({
       ...prev,
-      [name]: name === 'unit_price' || name === 'quantity' ? parseFloat(value) || 0 : value,
+      [name]: name === 'unit_price' || name === 'quantity' || name === 'average_cost' || name === 'last_purchase_price' || name === 'reorder_point' 
+              ? parseFloat(value) || 0 
+              : value,
     }));
   };
 
-  const handleAddProduct = async () => {
-    if (!newProduct.sku || !newProduct.name || !newProduct.category) {
+  const openAddModal = () => {
+    setIsEditMode(false);
+    setCurrentProduct({
+      sku: '',
+      name: '',
+      category: '',
+      unit_price: 0,
+      quantity: 0,
+      description: '',
+      inventory_level_status: 'In Stock',
+    });
+    setIsAddEditModalOpen(true);
+  };
+
+  const openEditModal = (product: Product) => {
+    setIsEditMode(true);
+    setCurrentProduct({ ...product });
+    setIsAddEditModalOpen(true);
+  };
+
+  const handleSaveProduct = async () => {
+    if (!currentProduct || !currentProduct.sku || !currentProduct.name || !currentProduct.category) {
       alert('SKU, Name, and Category are required.');
       return;
     }
+
+    const method = isEditMode ? 'PUT' : 'POST';
+    const url = isEditMode ? `${API_URL}/products/${currentProduct.sku}` : `${API_URL}/products`;
+
     try {
-      const response = await fetch(`${API_URL}/products`, {
-        method: 'POST',
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newProduct),
+        body: JSON.stringify(currentProduct),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-      setIsAddProductModalOpen(false);
-      setNewProduct({ sku: '', name: '', category: '', unit_price: 0, quantity: 0, description: '', inventory_level_status: 'In Stock' });
+      setIsAddEditModalOpen(false);
+      setCurrentProduct(null);
       fetchProducts(); // Refresh the list
     } catch (e: any) {
-      alert(`Failed to add product: ${e.message}`);
+      alert(`Failed to save product: ${e.message}`);
+    }
+  };
+
+  const openDeleteConfirm = (product: Product) => {
+    setProductToDelete(product);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+    try {
+      const response = await fetch(`${API_URL}/products/${productToDelete.sku}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      setIsDeleteConfirmOpen(false);
+      setProductToDelete(null);
+      fetchProducts(); // Refresh the list
+    } catch (e: any) {
+      alert(`Failed to delete product: ${e.message}`);
     }
   };
 
@@ -123,56 +180,72 @@ export default function ProductsPage() {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Product Management</h1>
-        <Dialog open={isAddProductModalOpen} onOpenChange={setIsAddProductModalOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => setIsAddProductModalOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[525px]">
-            <DialogHeader>
-              <DialogTitle>Add New Product</DialogTitle>
-              <DialogDescription>
-                Fill in the details for the new product.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="sku" className="text-right">SKU</Label>
-                <Input id="sku" name="sku" value={newProduct.sku} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" name="name" value={newProduct.name} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">Category</Label>
-                <Input id="category" name="category" value={newProduct.category} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="unit_price" className="text-right">Unit Price</Label>
-                <Input id="unit_price" name="unit_price" type="number" value={newProduct.unit_price || ''} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="quantity" className="text-right">Quantity</Label>
-                <Input id="quantity" name="quantity" type="number" value={newProduct.quantity || ''} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Description</Label>
-                <Textarea id="description" name="description" value={newProduct.description} onChange={handleInputChange} className="col-span-3" />
-              </div>
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="inventory_level_status" className="text-right">Status</Label>
-                <Input id="inventory_level_status" name="inventory_level_status" value={newProduct.inventory_level_status} onChange={handleInputChange} className="col-span-3" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsAddProductModalOpen(false)}>Cancel</Button>
-              <Button type="button" onClick={handleAddProduct}>Save Product</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={openAddModal}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add New Product
+        </Button>
       </div>
+
+      {/* Add/Edit Product Dialog */}
+      <Dialog open={isAddEditModalOpen} onOpenChange={setIsAddEditModalOpen}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>{isEditMode ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+            <DialogDescription>
+              {isEditMode ? 'Update the details of the product.' : 'Fill in the details for the new product.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="sku" className="text-right">SKU</Label>
+              <Input id="sku" name="sku" value={currentProduct?.sku || ''} onChange={handleInputChange} className="col-span-3" disabled={isEditMode} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">Name</Label>
+              <Input id="name" name="name" value={currentProduct?.name || ''} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="category" className="text-right">Category</Label>
+              <Input id="category" name="category" value={currentProduct?.category || ''} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="unit_price" className="text-right">Unit Price</Label>
+              <Input id="unit_price" name="unit_price" type="number" value={currentProduct?.unit_price || ''} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="quantity" className="text-right">Quantity</Label>
+              <Input id="quantity" name="quantity" type="number" value={currentProduct?.quantity || ''} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="description" className="text-right">Description</Label>
+              <Textarea id="description" name="description" value={currentProduct?.description || ''} onChange={handleInputChange} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="inventory_level_status" className="text-right">Status</Label>
+              <Input id="inventory_level_status" name="inventory_level_status" value={currentProduct?.inventory_level_status || 'In Stock'} onChange={handleInputChange} className="col-span-3" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsAddEditModalOpen(false)}>Cancel</Button>
+            <Button type="button" onClick={handleSaveProduct}>Save Product</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the product "{productToDelete?.name}" (SKU: {productToDelete?.sku}).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setProductToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteProduct} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {products.length === 0 ? (
         <p>No products found. Click "Add New Product" to get started.</p>
@@ -200,10 +273,10 @@ export default function ProductsPage() {
                   <TableCell className="text-right">{product.quantity ?? 'N/A'}</TableCell>
                   <TableCell>{product.inventory_level_status}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="mr-2">
+                    <Button variant="ghost" size="icon" className="mr-2" onClick={() => openEditModal(product)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700">
+                    <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => openDeleteConfirm(product)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
