@@ -1,75 +1,152 @@
 
+// Reports Page - Placeholder UI with modern theme
+
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Download, BarChart3, PieChart, LineChart } from 'lucide-react'; // Example icons
 
-interface Report {
-  report_name: string;
-  [key: string]: any; // For other dynamic fields in reports
+// Dummy interfaces - to be replaced with actual data models from backend
+interface ReportSummary {
+  title: string;
+  value: string | number;
+  description?: string;
 }
 
-async function fetchReport(endpoint: string): Promise<Report | { error: string }> {
-  try {
-    const response = await fetch(`http://localhost:8000/api/reports/${endpoint}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status} for ${endpoint}`);
-    }
-    return await response.json();
-  } catch (e: any) {
-    console.error(`Error fetching ${endpoint}:`, e);
-    return { error: e.message };
-  }
+interface ReportDataPoint {
+  label: string;
+  value: number;
 }
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+// Dummy data for placeholder UI
+const dummySalesSummary: ReportSummary[] = [
+  { title: 'Total Sales Revenue', value: '$150,750.25', description: 'For the current fiscal year' },
+  { title: 'Total Orders', value: 1245, description: 'Completed and shipped orders' },
+  { title: 'Average Order Value', value: '$121.08', description: 'Across all customers' },
+];
+
+const dummyInventorySummary: ReportSummary[] = [
+  { title: 'Total Inventory Value', value: '$85,300.00', description: 'Based on average cost' },
+  { title: 'Items in Stock', value: 7890, description: 'Across all product lines' },
+  { title: 'Out of Stock Items', value: 12, description: 'Requiring reorder' },
+];
 
 export default function ReportsPage() {
-  const [salesReport, setSalesReport] = useState<Report | { error: string } | null>(null);
-  const [inventoryReport, setInventoryReport] = useState<Report | { error: string } | null>(null);
-  const [purchaseReport, setPurchaseReport] = useState<Report | { error: string } | null>(null);
+  const [salesSummary, setSalesSummary] = useState<ReportSummary[]>([]);
+  const [inventorySummary, setInventorySummary] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Simulate fetching data - replace with actual API calls when backend is ready
   useEffect(() => {
-    async function loadReports() {
-      setLoading(true);
-      const [salesData, inventoryData, purchaseData] = await Promise.all([
-        fetchReport('sales?start_date=2024-01-01&end_date=2024-12-31'), // Example params
-        fetchReport('inventory?as_of_date=2024-12-31'), // Example params
-        fetchReport('purchases?start_date=2024-01-01&end_date=2024-12-31') // Example params
-      ]);
-      setSalesReport(salesData);
-      setInventoryReport(inventoryData);
-      setPurchaseReport(purchaseData);
+    setLoading(true);
+    setTimeout(() => {
+      setSalesSummary(dummySalesSummary);
+      setInventorySummary(dummyInventorySummary);
       setLoading(false);
-    }
-
-    loadReports();
+    }, 1000); // Simulate network delay
   }, []);
 
-  const renderReportCard = (title: string, reportData: Report | { error: string } | null) => {
-    if (!reportData) return <p>Loading {title}...</p>;
-    if ('error' in reportData) return <p>Error loading {title}: {reportData.error}</p>;
-
-    return (
-      <div className="p-4 border rounded-md shadow-sm">
-        <h2 className="text-xl font-semibold mb-2">{reportData.report_name || title}</h2>
-        <pre className="text-sm bg-gray-100 p-2 rounded overflow-x-auto">
-          {JSON.stringify(reportData, null, 2)}
-        </pre>
-      </div>
-    );
-  };
-
   if (loading) {
-    return <p className="container mx-auto p-4">Loading reports...</p>;
+    return <p className="p-6">Loading reports data...</p>;
+  }
+
+  if (error) {
+    return <p className="p-6 text-destructive">Error fetching reports data: {error}</p>;
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">ERP Reports</h1>
-      <div className="space-y-6">
-        {renderReportCard("Sales Report", salesReport)}
-        {renderReportCard("Inventory Report", inventoryReport)}
-        {renderReportCard("Purchase Report", purchaseReport)}
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Reports Dashboard</h1>
+          <p className="text-muted-foreground">Key metrics and insights for your business.</p>
+        </div>
+        {/* Placeholder for future actions like "Customize Dashboard" or "Export All" */}
+        <Button disabled>
+          <Download className="mr-2 h-4 w-4" /> Export Reports (Coming Soon)
+        </Button>
       </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {salesSummary.map((item, index) => (
+          <Card key={`sales-${index}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{item.value}</div>
+              {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {inventorySummary.map((item, index) => (
+          <Card key={`inventory-${index}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
+              <PackageSearch className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{item.value}</div>
+              {item.description && <p className="text-xs text-muted-foreground">{item.description}</p>}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Detailed Reports (Coming Soon)</CardTitle>
+          <CardDescription>Generate and view detailed financial and operational reports.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          <Button variant="outline" disabled className="w-full justify-start">
+            <BarChart3 className="mr-2 h-4 w-4" /> Sales by Product
+          </Button>
+          <Button variant="outline" disabled className="w-full justify-start">
+            <PieChart className="mr-2 h-4 w-4" /> Inventory Aging
+          </Button>
+          <Button variant="outline" disabled className="w-full justify-start">
+            <LineChart className="mr-2 h-4 w-4" /> Profit & Loss Trend
+          </Button>
+          <Button variant="outline" disabled className="w-full justify-start">
+            <Download className="mr-2 h-4 w-4" /> Customer Purchase History
+          </Button>
+          <Button variant="outline" disabled className="w-full justify-start">
+            <Download className="mr-2 h-4 w-4" /> Supplier Performance
+          </Button>
+        </CardContent>
+      </Card>
+      
+      {/* Placeholder for Grafana integration */}
+      <Card>
+        <CardHeader>
+            <CardTitle>Interactive Dashboards (Grafana Integration - Planned)</CardTitle>
+            <CardDescription>Visualize your data with powerful, interactive dashboards.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <p className="text-muted-foreground">
+                Future integration with Grafana will allow for dynamic and customizable dashboards here.
+            </p>
+            {/* Example of where an embedded Grafana panel might go */}
+            <div className="mt-4 p-4 border border-dashed rounded-md h-64 flex items-center justify-center bg-muted/30">
+                <p className="text-center text-muted-foreground">
+                    Grafana Dashboard Panel Placeholder
+                    <br />
+                    (Requires backend setup and Grafana configuration)
+                </p>
+            </div>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
