@@ -25,7 +25,7 @@ from src.core_modules.reporting_module.reporting_service import generate_sales_r
 from src.core_modules.accounting_module.accounting_service import AccountingService
 
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes and origins by default
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:3002", "http://192.168.2.104:3002"]}})
 
 # Initialize services
 product_service = ProductService()
@@ -145,7 +145,7 @@ def record_sale_api():
     try:
         sale = sales_service.record_sale(data["customer_name"], data["items"], data["order_date"], data.get("status", "Pending"))
         if "error" in sale:
-            logger.error(f"Error recording sale: {sale["error"]}")
+            logger.error(f"Error recording sale: {sale['error']}")
             return jsonify(sale), 400
         logger.info(f"Sale recorded: {sale}")
         return jsonify(sale), 201
