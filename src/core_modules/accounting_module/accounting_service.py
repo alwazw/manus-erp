@@ -25,7 +25,7 @@ class AccountingService:
 
     def add_account(self, account_id, account_name, account_type):
         logger.info(f"AccountingService: add_account called for ID {account_id}, Name: {account_name}")
-        if any(acc["account_id"] == account_id for acc in self.chart_of_accounts):
+        if any(acc['account_id'] == account_id for acc in self.chart_of_accounts):
             logger.warning(f"AccountingService: Attempt to add existing account ID {account_id}.")
             return {"error": f"Account ID {account_id} already exists."}
         new_account = {"account_id": account_id, "account_name": account_name, "account_type": account_type}
@@ -53,9 +53,9 @@ class AccountingService:
             return {"error": "Debits do not equal credits."}
         
         for entry_line in entries:
-            if not any(acc["account_id"] == entry_line.get("account_id") for acc in self.chart_of_accounts):
-                logger.warning(f"AccountingService: Invalid account ID {entry_line.get("account_id")} in journal entry.")
-                return {"error": f"Invalid account ID {entry_line.get("account_id")} in journal entry."}
+            if not any(acc['account_id'] == entry_line.get('account_id') for acc in self.chart_of_accounts):
+                logger.warning(f'AccountingService: Invalid account ID {entry_line.get("account_id")} in journal entry.')
+                return {'error': f'Invalid account ID {entry_line.get("account_id")} in journal entry.'}
 
         new_journal_entry = {
             "journal_entry_id": self._generate_journal_entry_id(),
@@ -66,7 +66,7 @@ class AccountingService:
             "total_credits": total_credits
         }
         self.journal_entries.append(new_journal_entry)
-        logger.info(f"AccountingService: Journal entry {new_journal_entry["journal_entry_id"]} created successfully.")
+        logger.info(f"AccountingService: Journal entry {new_journal_entry['journal_entry_id']} created successfully.")
         return new_journal_entry
 
     def get_all_journal_entries(self):
@@ -76,7 +76,7 @@ class AccountingService:
     def get_journal_entry_by_id(self, journal_entry_id):
         logger.debug(f"AccountingService: get_journal_entry_by_id called for ID: {journal_entry_id}")
         for je in self.journal_entries:
-            if je["journal_entry_id"] == journal_entry_id:
+            if je['journal_entry_id'] == journal_entry_id:
                 return je
         logger.warning(f"AccountingService: Journal entry ID {journal_entry_id} not found.")
         return None

@@ -104,17 +104,25 @@ export default function SalesPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError1 is intentionally unused
             // Response was not JSON
         }
         throw new Error(errorMsg);
       }
-      const data = await response.json();
+      const data = await response.json() as SaleOrder[];
       setSales(data);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to fetch sales orders.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error("Error fetching sales orders:", { url, error: e });
-      setError(e.message || "Failed to fetch sales orders.");
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -128,17 +136,26 @@ export default function SalesPage() {
         let errorMsg = `HTTP error fetching products! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError2 is intentionally unused
             // Response was not JSON
         }
         throw new Error(errorMsg);
       }
-      const data = await response.json();
-      setProductsForSelection(data.map((p: any) => ({ sku: p.sku, name: p.name, unit_price: p.unit_price, quantity: p.quantity })));
-    } catch (e: any) {
+      const data = await response.json() as ProductQuickPick[];
+      setProductsForSelection(data.map((p: ProductQuickPick) => ({ sku: p.sku, name: p.name, unit_price: p.unit_price, quantity: p.quantity })));
+    } catch (e: unknown) {
+      let message = "Failed to fetch products for selection.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error("Error fetching products for selection:", { url, error: e });
       // Optionally set an error state if this is critical for UI
+      setError(message); // Or a more specific error state for products
     }
   }, []);
 
@@ -149,18 +166,18 @@ export default function SalesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentSaleOrder((prev: any) => ({
-      ...prev,
+    setCurrentSaleOrder((prev: Partial<SaleOrder> | null) => ({
+      ...(prev as SaleOrder),
       [name]: value,
     }));
   };
   
   const handleShippingInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setCurrentSaleOrder((prev: any) => ({
-        ...prev,
+    setCurrentSaleOrder((prev: Partial<SaleOrder> | null) => ({
+        ...(prev as SaleOrder),
         shipping_address: {
-            ...(prev.shipping_address || {}),
+            ...((prev as SaleOrder).shipping_address || {}),
             [name]: value,
         }
     }));
@@ -212,7 +229,7 @@ export default function SalesPage() {
         ...saleOrder, 
         order_date: saleOrder.order_date ? new Date(saleOrder.order_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
     });
-    setSaleOrderItems(saleOrder.items.map(item => ({ sku: item.sku, quantity: item.quantity, price: item.price })));
+    setSaleOrderItems(saleOrder.items.map(item => ({ sku: item.sku, quantity: item.quantity ?? 0, price: item.price })));
     setIsAddEditModalOpen(true);
   };
   
@@ -231,7 +248,7 @@ export default function SalesPage() {
         return;
     }
 
-    const payload = {
+    const payload: Partial<SaleOrder> = {
       ...currentSaleOrder,
       items: saleOrderItems,
       order_date: currentSaleOrder.order_date ? new Date(currentSaleOrder.order_date).toISOString() : new Date().toISOString()
@@ -252,8 +269,10 @@ export default function SalesPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError3 is intentionally unused
             // Response was not JSON
         }
         throw new Error(errorMsg);
@@ -262,9 +281,15 @@ export default function SalesPage() {
       setCurrentSaleOrder(null);
       setSaleOrderItems([]);
       fetchSales(); 
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to save sales order.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error(`Error saving sales order (Method: ${method}):`, { url, payload, error: e });
-      alert(`Failed to save sales order: ${e.message}`);
+      alert(message);
     }
   };
 
@@ -284,8 +309,10 @@ export default function SalesPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError4 is intentionally unused
             // Response was not JSON
         }
         throw new Error(errorMsg);
@@ -293,9 +320,15 @@ export default function SalesPage() {
       setIsDeleteConfirmOpen(false);
       setSaleOrderToDelete(null);
       fetchSales(); 
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to delete sales order.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error("Error deleting sales order:", { url, orderId: saleOrderToDelete.order_id, error: e });
-      alert(`Failed to delete sales order: ${e.message}`);
+      alert(message);
     }
   };
 
@@ -445,12 +478,12 @@ export default function SalesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the sales order "{saleOrderToDelete?.order_number}". Inventory levels for items in this order will be reverted.
+              This action cannot be undone. This will permanently delete the sales order &quot;{saleOrderToDelete?.order_number}&quot;. Inventory levels for items in this order will be reverted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSaleOrderToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteSaleOrder} variant="destructive">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteSaleOrder}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

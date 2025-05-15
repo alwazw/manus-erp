@@ -126,22 +126,21 @@ class PurchaseService:
             total_amount = 0
             processed_items = []
             for item_idx, item_data in enumerate(items):
-                logger.debug(f"Processing purchase item {item_idx + 1}: SKU {item_data.get("sku")}")
-                product_info = self._execute_query("SELECT product_id FROM products WHERE sku = %s", (item_data["sku"],), fetch_one=True)
+                logger.debug(f"Processing purchase item {item_idx + 1}: SKU {item_data.get('sku')}")
+                product_info = self._execute_query("SELECT product_id FROM products WHERE sku = %s", (item_data['sku'],), fetch_one=True)
                 if not product_info:
-                    logger.error(f"Product with SKU {item_data["sku"]} not found during purchase recording.")
-                    return {"error": f"Product with SKU {item_data["sku"]} not found."}
-                
+                    logger.error(f"Product with SKU {item_data.get('sku')} not found during purchase recording.")
+                    return {"error": f"Product with SKU {item_data.get('sku')} not found."}
                 item_cost = item_data.get("cost_price") # Assuming cost_price is provided
                 if item_cost is None:
-                    logger.error(f"Missing cost_price for SKU {item_data["sku"]} in purchase item.")
-                    return {"error": f"Missing cost_price for SKU {item_data["sku"]}."}
+                    logger.error(f"Missing cost_price for SKU {item_data.get('sku')} in purchase item.")
+                    return {"error": f"Missing cost_price for SKU {item_data.get('sku')}."}
                 item_cost = float(item_cost)
-                total_amount += item_data["quantity"] * item_cost
+                total_amount += item_data['quantity'] * item_cost
                 processed_items.append({
                     "product_id": product_info[0],
-                    "sku": item_data["sku"],
-                    "quantity": item_data["quantity"],
+                    "sku": item_data['sku'],
+                    "quantity": item_data['quantity'],
                     "unit_cost_at_purchase": item_cost
                 })
             logger.debug(f"Calculated total_amount: {total_amount} for the purchase.")
@@ -171,15 +170,15 @@ class PurchaseService:
                     INSERT INTO purchase_order_items (po_id, product_id, sku, quantity, unit_cost, line_total)
                     VALUES (%s, %s, %s, %s, %s, %s);
                 """
-                line_total = item["quantity"] * item["unit_cost_at_purchase"]
+                line_total = item['quantity'] * item['unit_cost_at_purchase']
                 self._execute_query(sql_insert_item, (
-                    po_id, item["product_id"], item["sku"], item["quantity"], item["unit_cost_at_purchase"], line_total
+                    po_id, item['product_id'], item['sku'], item['quantity'], item['unit_cost_at_purchase'], line_total
                 ), commit=True)
-                logger.debug(f"Inserted purchase_order_item for po_id {po_id}, product_id {item["product_id"]}")
+                logger.debug(f"Inserted purchase_order_item for po_id {po_id}, product_id {item['product_id']}")
                 
                 if status == "Received":
-                    logger.info(f"PO {po_id} is 'Received'. Updating inventory for product_id {item["product_id"]}")
-                    self._update_inventory_and_costs_on_receive(item["product_id"], item["quantity"], item["unit_cost_at_purchase"])
+                    logger.info(f"PO {po_id} is 'Received'. Updating inventory for product_id {item['product_id']}")
+                    self._update_inventory_and_costs_on_receive(item['product_id'], item['quantity'], item['unit_cost_at_purchase'])
 
             return self.get_purchase_by_id(po_id)
         except Exception as e:
@@ -286,7 +285,7 @@ class PurchaseService:
             item_rows = self._execute_query(sql_items, (po_id,), fetch_all=True)
             if item_rows:
                 for item_row in item_rows:
-                    po_details["items"].append({
+                    po_details['items'].append({
                         "po_item_id": item_row[0],
                         "product_id": item_row[1],
                         "product_name": item_row[2],
@@ -312,10 +311,10 @@ class PurchaseService:
             sql = "UPDATE purchase_orders SET status = %s, updated_at = CURRENT_TIMESTAMP WHERE po_id = %s RETURNING po_id;"
             updated_row = self._execute_query(sql, (new_status, po_id), commit=True, fetch_one=True)
             
-            if updated_row and new_status == "Received" and current_po["status"] != "Received":
+            if updated_row and new_status == "Received" and current_po['status'] != "Received":
                 logger.info(f"Purchase order {po_id} status changed to 'Received'. Updating inventory and costs for its items.")
                 for item in current_po.get("items", []):
-                    self._update_inventory_and_costs_on_receive(item["product_id"], item["quantity"], item["unit_cost"])
+                    self._update_inventory_and_costs_on_receive(item['product_id'], item['quantity'], item['unit_cost'])
             
             if updated_row:
                 logger.info(f"Purchase order po_id: {po_id} status updated to {new_status}")
@@ -334,7 +333,7 @@ class PurchaseService:
                 logger.warning(f"Delete failed: Purchase order not found for po_id: {po_id}")
                 return False
             
-            if current_po["status"] == "Received":
+            if current_po['status'] == "Received":
                 logger.warning(f"Attempted to delete Purchase Order {po_id} which is already 'Received'. Deletion without inventory reversal can cause discrepancies. Proceeding with deletion of PO records only.")
                 # Consider if inventory should be reverted here or if deletion of received POs should be disallowed.
 

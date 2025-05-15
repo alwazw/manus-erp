@@ -123,11 +123,11 @@ class SalesService:
             total_amount = 0
             processed_items = []
             for item_idx, item_data in enumerate(items):
-                logger.debug(f"Processing sale item {item_idx + 1}: SKU {item_data.get("sku")}")
+                logger.debug(f"Processing sale item {item_idx + 1}: SKU {item_data.get('sku')}")
                 product_info = self._execute_query("SELECT product_id, unit_price, available_quantity FROM products p JOIN inventory_levels il ON p.product_id = il.product_id WHERE sku = %s", (item_data["sku"],), fetch_one=True)
                 if not product_info:
-                    logger.error(f"Product with SKU {item_data["sku"]} not found during sale recording.")
-                    return {"error": f"Product with SKU {item_data["sku"]} not found."}
+                    logger.error(f"Product with SKU {item_data['sku']} not found during sale recording.")
+                    return {"error": f"Product with SKU {item_data['sku']} not found."}
                 
                 # Check stock
                 available_quantity = product_info[2]

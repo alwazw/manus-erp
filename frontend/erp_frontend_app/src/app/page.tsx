@@ -3,9 +3,9 @@
 
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import {
-  LayoutDashboard, ShoppingBag, ShoppingCart, BarChart3, BookUser, ExternalLink, Server 
+  ShoppingBag, ShoppingCart, BarChart3, BookUser, ExternalLink, Server 
 } from 'lucide-react';
 
 const moduleLinks = [

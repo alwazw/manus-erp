@@ -3,10 +3,10 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Download, BarChart3, PieChart, LineChart } from 'lucide-react'; // Example icons
+import { Download, BarChart3, PieChart, LineChart, DollarSign, PackageSearch } from 'lucide-react'; // Example icons
 
 // Dummy interfaces - to be replaced with actual data models from backend
 interface ReportSummary {
@@ -15,12 +15,12 @@ interface ReportSummary {
   description?: string;
 }
 
-interface ReportDataPoint {
-  label: string;
-  value: number;
-}
+// interface ReportDataPoint {
+//   label: string;
+//   value: number;
+// }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+// const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 // Dummy data for placeholder UI
 const dummySalesSummary: ReportSummary[] = [
@@ -39,7 +39,7 @@ export default function ReportsPage() {
   const [salesSummary, setSalesSummary] = useState<ReportSummary[]>([]);
   const [inventorySummary, setInventorySummary] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, ] = useState<string | null>(null);
 
   // Simulate fetching data - replace with actual API calls when backend is ready
   useEffect(() => {

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Inter } from 'next/font/google';
 import './globals.css'; // Import global styles
 import {
-  LayoutDashboard, ShoppingBag, ShoppingCart, BarChart3, BookUser, Settings, LogOut
+  LayoutDashboard, ShoppingBag, ShoppingCart, BarChart3, BookUser, Settings
 } from 'lucide-react';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -37,10 +37,8 @@ export default function RootLayout({
             <div className="p-6 border-b border-sidebar-border">
               <Link href="/" className="flex items-center space-x-2">
                 {/* Replace with a proper logo if available */}
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-8 w-8 text-primary">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-                </svg>
-                <span className="text-2xl font-bold text-foreground">Manus ERP</span>
+                <img src="/assets/visionvation_logo.jpg" alt="Visionvation Logo" className="h-10 w-auto" /> 
+                <span className="text-2xl font-bold text-foreground">Visionvation ERP</span>
               </Link>
             </div>
             <nav className="flex-grow p-4 space-y-1">

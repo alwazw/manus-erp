@@ -3,7 +3,7 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -38,10 +38,8 @@ interface JournalEntry {
   lines: JournalEntryLine[];
   total_debits: number;
   total_credits: number;
-}
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-
+}// const API_URL = process.env.NEXT_PUBLIC_API_URL || 
+//   "http://localhost:8000/api";
 // Dummy data for placeholder UI
 const dummyChartOfAccounts: Account[] = [
   { account_id: '1010', account_name: 'Cash', account_type: 'Asset', balance: 50000 },
@@ -82,7 +80,7 @@ export default function AccountingPage() {
   const [chartOfAccounts, setChartOfAccounts] = useState<Account[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, ] = useState<string | null>(null);
 
   // Simulate fetching data - replace with actual API calls when backend is ready
   useEffect(() => {

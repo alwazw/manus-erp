@@ -105,17 +105,25 @@ export default function PurchasesPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError1 is intentionally unused
             // Response was not JSON
         }
         throw new Error(errorMsg);
       }
-      const data = await response.json();
+      const data = await response.json() as PurchaseOrder[];
       setPurchases(data);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to fetch purchase orders.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error("Error fetching purchase orders:", { url, error: e });
-      setError(e.message || "Failed to fetch purchase orders.");
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -129,17 +137,25 @@ export default function PurchasesPage() {
         let errorMsg = `HTTP error fetching products! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError2 is intentionally unused
             // Response was not JSON
         }
         throw new Error(errorMsg);
       }
-      const data = await response.json();
-      setProductsForSelection(data.map((p: any) => ({ sku: p.sku, name: p.name, unit_price: p.unit_price, quantity: p.quantity })));
-    } catch (e: any) {
+      const data = await response.json() as ProductQuickPick[];
+      setProductsForSelection(data.map((p: ProductQuickPick) => ({ sku: p.sku, name: p.name, unit_price: p.unit_price, quantity: p.quantity })));
+    } catch (e: unknown) {
+      let message = "Failed to fetch products for selection.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error("Error fetching products for selection:", { url, error: e });
-      // Optionally set an error state if this is critical for UI
+      setError(message); // Or a more specific error state for products
     }
   }, []);
 
@@ -150,8 +166,8 @@ export default function PurchasesPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentPurchaseOrder((prev: any) => ({
-      ...prev,
+    setCurrentPurchaseOrder((prev: Partial<PurchaseOrder> | null) => ({
+      ...(prev as PurchaseOrder),
       [name]: value,
     }));
   };
@@ -203,7 +219,7 @@ export default function PurchasesPage() {
         order_date: purchaseOrder.order_date ? new Date(purchaseOrder.order_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         expected_delivery_date: purchaseOrder.expected_delivery_date ? new Date(purchaseOrder.expected_delivery_date).toISOString().split('T')[0] : ''
     });
-    setPurchaseOrderItems(purchaseOrder.items.map(item => ({ sku: item.sku, quantity: item.quantity, cost_price: item.cost_price })));
+    setPurchaseOrderItems(purchaseOrder.items.map(item => ({ sku: item.sku, quantity: item.quantity ?? 0, cost_price: item.cost_price ?? 0 })));
     setIsAddEditModalOpen(true);
   };
 
@@ -228,7 +244,7 @@ export default function PurchasesPage() {
         return;
     }
 
-    const payload = {
+    const payload: Partial<PurchaseOrder> = {
       ...currentPurchaseOrder,
       items: purchaseOrderItems,
       order_date: currentPurchaseOrder.order_date ? new Date(currentPurchaseOrder.order_date).toISOString() : new Date().toISOString(),
@@ -250,8 +266,10 @@ export default function PurchasesPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError3 is intentionally unused
             // Response was not JSON
         }
         throw new Error(errorMsg);
@@ -260,9 +278,15 @@ export default function PurchasesPage() {
       setCurrentPurchaseOrder(null);
       setPurchaseOrderItems([]);
       fetchPurchases();
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to save purchase order.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error(`Error saving purchase order (Method: ${method}):`, { url, payload, error: e });
-      alert(`Failed to save purchase order: ${e.message}`);
+      alert(message);
     }
   };
   
@@ -279,8 +303,10 @@ export default function PurchasesPage() {
             let errorMsg = `HTTP error! status: ${response.status}`;
             try {
                 const errorData = await response.json();
-                errorMsg = errorData.error || errorData.message || errorMsg;
-            } catch (jsonError) {
+                if (typeof errorData === 'object' && errorData !== null) {
+                  errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+                }
+            } catch { // _jsonError4 is intentionally unused
                 // Response was not JSON
             }
             throw new Error(errorMsg);
@@ -288,9 +314,15 @@ export default function PurchasesPage() {
         fetchPurchases();
         setIsStatusUpdateModalOpen(false);
         setPoToUpdateStatus(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
+        let message = "Failed to update PO status.";
+        if (e instanceof Error) {
+            message = e.message;
+        } else if (typeof e === 'string') {
+            message = e;
+        }
         console.error("Error updating PO status:", { url, poId: poToUpdateStatus.po_id, newStatus, error: e });
-        alert(`Failed to update PO status: ${e.message}`);
+        alert(message);
     }
   };
 
@@ -310,8 +342,10 @@ export default function PurchasesPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError5 is intentionally unused
             // Response was not JSON
         }
         throw new Error(errorMsg);
@@ -319,9 +353,15 @@ export default function PurchasesPage() {
       setIsDeleteConfirmOpen(false);
       setPurchaseOrderToDelete(null);
       fetchPurchases();
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to delete purchase order.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error("Error deleting purchase order:", { url, poId: purchaseOrderToDelete.po_id, error: e });
-      alert(`Failed to delete purchase order: ${e.message}`);
+      alert(message);
     }
   };
   
@@ -464,12 +504,12 @@ export default function PurchasesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the purchase order "{purchaseOrderToDelete?.po_number}".
+              This action cannot be undone. This will permanently delete the purchase order &quot;{purchaseOrderToDelete?.po_number}&quot;.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setPurchaseOrderToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeletePurchaseOrder} variant="destructive">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeletePurchaseOrder}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -511,7 +551,7 @@ export default function PurchasesPage() {
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Update PO Status: {poToUpdateStatus?.po_number}</DialogTitle>
-                <DialogDescription>Select the new status for this purchase order. If set to "Received", inventory will be updated.</DialogDescription>
+                <DialogDescription>Select the new status for this purchase order. If set to &quot;Received&quot;, inventory will be updated.</DialogDescription>
             </DialogHeader>
             <div className="py-4">
                 <Label htmlFor="new_status">New Status</Label>

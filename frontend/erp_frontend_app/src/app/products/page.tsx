@@ -81,17 +81,25 @@ export default function ProductsPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError1 is intentionally unused
             // Ignore if response is not JSON
         }
         throw new Error(errorMsg);
       }
-      const data = await response.json();
+      const data = await response.json() as Product[];
       setProducts(data);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to fetch products.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error("Error fetching products:", { url, error: e });
-      setError(e.message || "Failed to fetch products.");
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -103,8 +111,8 @@ export default function ProductsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCurrentProduct((prev: any) => ({
-      ...prev,
+    setCurrentProduct((prev: Partial<Product> | null) => ({
+      ...(prev as Product),
       [name]: name === 'unit_price' || name === 'quantity' || name === 'average_cost' || name === 'last_purchase_price' || name === 'reorder_point' 
               ? parseFloat(value) || null
               : value,
@@ -162,8 +170,10 @@ export default function ProductsPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError2 is intentionally unused
             // Ignore if response is not JSON
         }
         throw new Error(errorMsg);
@@ -171,9 +181,15 @@ export default function ProductsPage() {
       setIsAddEditModalOpen(false);
       setCurrentProduct(null);
       fetchProducts();
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to save product.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error(`Error saving product (Method: ${method}):`, { url, payload, error: e });
-      alert(`Failed to save product: ${e.message}`);
+      alert(message);
     }
   };
 
@@ -193,8 +209,10 @@ export default function ProductsPage() {
         let errorMsg = `HTTP error! status: ${response.status}`;
         try {
             const errorData = await response.json();
-            errorMsg = errorData.error || errorData.message || errorMsg;
-        } catch (jsonError) {
+            if (typeof errorData === 'object' && errorData !== null) {
+              errorMsg = (errorData as { error?: string; message?: string }).error || (errorData as { error?: string; message?: string }).message || errorMsg;
+            }
+        } catch { // _jsonError3 is intentionally unused
             // Ignore if response is not JSON
         }
         throw new Error(errorMsg);
@@ -202,9 +220,15 @@ export default function ProductsPage() {
       setIsDeleteConfirmOpen(false);
       setProductToDelete(null);
       fetchProducts();
-    } catch (e: any) {
+    } catch (e: unknown) {
+      let message = "Failed to delete product.";
+      if (e instanceof Error) {
+        message = e.message;
+      } else if (typeof e === 'string') {
+        message = e;
+      }
       console.error("Error deleting product:", { url, productSKU: productToDelete.sku, error: e });
-      alert(`Failed to delete product: ${e.message}`);
+      alert(message);
     }
   };
 
@@ -282,12 +306,12 @@ export default function ProductsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the product "{productToDelete?.name}" (SKU: {productToDelete?.sku}).
+              This action cannot be undone. This will permanently delete the product &quot;{productToDelete?.name}&quot; (SKU: {productToDelete?.sku}).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setProductToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteProduct} variant="destructive">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteProduct}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
