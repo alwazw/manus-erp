@@ -75,7 +75,8 @@ interface ProductQuickPick {
   quantity?: number; 
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
+// Use the Next.js proxy which is configured in next.config.js
+const API_URL = "/api";
 
 export default function SalesPage() {
   const [sales, setSales] = useState<SaleOrder[]>([]);

@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export',
+  // Keep rewrites for development, but they won't apply in static export
   async rewrites() {
     return [
       {
@@ -7,6 +9,10 @@ const nextConfig = {
         destination: 'https://8000-ihjhzgiap650vxkp9bt03-998d4a31.manus.computer/api/:path*', // Proxy to Public Backend URL
       },
     ];
+  },
+  // Disable image optimization since it requires server components
+  images: {
+    unoptimized: true,
   },
 };
 
